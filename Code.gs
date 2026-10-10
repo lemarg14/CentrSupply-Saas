@@ -13,16 +13,19 @@
  */
 
 const SCHEMA = {
-  clients:    ['id','nom','type','contact','telephone','email','prix_prep','prix_upsell','prix_retour','notes','actif','created','updated'],
+  clients:    ['id','nom','type','contact','telephone','email','prix_prep','prix_upsell','prix_retour','emballage','portail','notes','actif','created','updated'],
   produits:   ['id','client_id','sku','nom','emplacement','prix','cout','seuil','delai','couverture','actif','created','updated'],
-  commandes:  ['id','numero','date','client_id','destinataire','lignes','ups','statut','transporteur','suivi','montant','paiement','montant_paye','date_paiement','notes','created','updated'],
+  commandes:  ['id','numero','date','client_id','destinataire','lignes','ups','statut','date_exp','transporteur','suivi','montant','paiement','montant_paye','date_paiement','notes','created','updated'],
   retours:    ['id','dossier','date','client_id','commande_id','produit_id','qte','motif','etat','decision','notes','created','updated'],
   mouvements: ['id','date','produit_id','type','qte','note','created','updated'],
   frais:      ['id','date','client_id','libelle','qte','pu','montant','paiement','montant_paye','date_paiement','auto','notes','created','updated'],
-  parametres: ['id','valeur','created','updated']
+  parametres: ['id','valeur','created','updated'],
+  journal:    ['id','date','user','sheet','ref','action','created','updated']
 };
+// Champs date au format AAAA-MM-JJ
+const JOURNAL_MAX = 1500; // nb max de lignes d'historique renvoyées à l'app
 // Colonnes laissées telles quelles (dates -> vraies dates dans la Sheet)
-const RAW_FIELDS = ['date', 'date_paiement'];
+const RAW_FIELDS = ['date', 'date_paiement', 'date_exp'];
 
 /** À lancer une fois (et à relancer sans risque si tu ajoutes des colonnes). */
 function setup() {
@@ -68,6 +71,11 @@ function doPost(e) {
   catch (err) { return out({ ok: false, error: 'Requête invalide' }); }
   const token = PropertiesService.getScriptProperties().getProperty('TOKEN');
   if (!token) return out({ ok: false, error: 'Lance d\'abord setup() dans Apps Script' });
+  // Lien client en lecture seule : n'expose que les données de ce client
+  if (body.action === 'portal') {
+    try { return out({ ok: true, data: portal(body.portail) }); }
+    catch (err) { return out({ ok: false, error: String(err && err.message || err) }); }
+  }
   if (body.token !== token) return out({ ok: false, error: 'Clé d\'accès invalide' });
   try {
     switch (body.action) {
@@ -99,13 +107,41 @@ function readAll() {
       hdr.forEach(function (h, i) {
         if (!h) return;
         let x = r[i];
-        if (x instanceof Date) x = Utilities.formatDate(x, tz, 'yyyy-MM-dd');
+        if (x instanceof Date) x = h === 'date' && name === 'journal' ? x.toISOString() : Utilities.formatDate(x, tz, 'yyyy-MM-dd');
         o[h] = x;
       });
       return o;
     });
+    if (name === 'journal' && res[name].length > JOURNAL_MAX) res[name] = res[name].slice(-JOURNAL_MAX);
   });
   return res;
+}
+
+function portal(tok) {
+  tok = String(tok || '');
+  if (tok.length < 16) throw new Error('Lien invalide');
+  const all = readAll();
+  const c = all.clients.filter(function (x) { return String(x.portail) === tok; })[0];
+  if (!c) throw new Error('Ce lien a été désactivé ou n\'existe pas.');
+  const cid = String(c.id);
+  const mine = function (x) { return String(x.client_id) === cid; };
+  const commandes = all.commandes.filter(mine);
+  const own = all.produits.filter(mine);
+  const ids = {}; own.forEach(function (p) { ids[String(p.id)] = 1; });
+  const used = {};
+  commandes.forEach(function (o) { try { JSON.parse(o.lignes || '[]').forEach(function (l) { used[String(l.p)] = 1; }); } catch (e) {} });
+  const produits = own.concat(all.produits.filter(function (p) { return !ids[String(p.id)] && used[String(p.id)]; })
+    .map(function (p) { return { id: p.id, client_id: p.client_id, nom: p.nom, sku: p.sku, actif: p.actif }; }));
+  return {
+    clients: [{ id: c.id, nom: c.nom, type: c.type, prix_prep: c.prix_prep, prix_upsell: c.prix_upsell, prix_retour: c.prix_retour, actif: true }],
+    produits: produits,
+    commandes: commandes,
+    retours: all.retours.filter(mine),
+    mouvements: all.mouvements.filter(function (m) { return ids[String(m.produit_id)]; }),
+    frais: all.frais.filter(mine),
+    parametres: all.parametres.filter(function (x) { return x.id === 'prix'; }),
+    journal: []
+  };
 }
 
 /** Crée l'onglet ou les colonnes manquantes (mises à jour de l'app sans relancer setup). */
