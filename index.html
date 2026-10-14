@@ -130,7 +130,7 @@ svg.bars .bb{fill:var(--accent);opacity:.92}svg.bars rect:hover{opacity:1}svg.ba
 svg.bars .bl{fill:var(--muted);font-size:11px}svg.bars .bv{fill:var(--ink);font-size:11px;font-weight:600}
 .spark{color:var(--accent);display:block}
 .big{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
-.neg{color:var(--bad)}
+.neg{color:var(--bad)}.pos{color:var(--ok)}
 details.help{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:16px;color:var(--muted)}
 details.help summary{cursor:pointer;color:var(--ink);font-weight:550}
 details.help p{margin:8px 0 0}
@@ -431,10 +431,11 @@ const SCHEMA={
   retours:['id','dossier','date','client_id','commande_id','produit_id','qte','motif','etat','decision','notes','created','updated'],
   mouvements:['id','date','produit_id','type','qte','lot','dlc','note','created','updated'],
   frais:['id','date','client_id','libelle','qte','pu','montant','paiement','montant_paye','date_paiement','auto','notes','created','updated'],
+  provisions:['id','date','client_id','type','sens','montant','ref','note','created','updated'],
   parametres:['id','valeur','created','updated'],
   journal:['id','date','user','sheet','ref','action','created','updated']
 };
-const NUMF={clients:['prix_prep','prix_upsell','prix_retour'],produits:['prix','cout','seuil','delai','couverture'],commandes:['ups','montant','montant_paye'],retours:['qte'],mouvements:['qte'],frais:['qte','pu','montant','montant_paye']};
+const NUMF={clients:['prix_prep','prix_upsell','prix_retour'],produits:['prix','cout','seuil','delai','couverture'],commandes:['ups','montant','montant_paye'],retours:['qte'],mouvements:['qte'],frais:['qte','pu','montant','montant_paye'],provisions:['montant']};
 /* Prix par défaut (HT) — modifiables dans Réglages, et par client dans sa fiche */
 const DEF_PRICES={prep:1.30,upsell:0.30,retour:2.00};
 const CTYPES=['Marque e-com (logistique)','Client B2B','Marque propre'];
@@ -500,7 +501,7 @@ function saveMany(items,label){const msgs=items.length<=20?items.map(([s,r])=>{c
   items.forEach(([s,r])=>put(s,r));
   if(msgs)msgs.forEach(([s,id,m])=>logEntry(s,id,m));else if(items.length)logEntry(items[0][0],'',label||`${items.length} modifications (${[...new Set(items.map(i=>i[0]))].join(', ')})`);
   persist();render();flush()}
-function removeRow(sheet,id){const o=DB[sheet].find(x=>x.id===id);if(o&&sheet!=='journal')logEntry(sheet,id,`Supprimé : ${o.numero||o.nom||o.libelle||pname(o.produit_id)||id}`);DB[sheet]=DB[sheet].filter(x=>x.id!==id);if(CFG.url)Q.push({action:'delete',sheet,id});persist();render();flush()}
+function removeRow(sheet,id){const o=DB[sheet].find(x=>x.id===id);if(o&&sheet!=='journal')logEntry(sheet,id,`Supprimé : ${o.numero||o.nom||o.libelle||o.ref||pname(o.produit_id)||id}`);DB[sheet]=DB[sheet].filter(x=>x.id!==id);if(CFG.url)Q.push({action:'delete',sheet,id});persist();render();flush()}
 let flushing=false;
 async function flush(){
   if(!CFG.url||flushing)return;
@@ -553,6 +554,30 @@ function feeDetail(c,lignes,ups){const pr=prices(c),p=[];if(isLogi(c)){if(lignes
   const v=lignes.reduce((s,l)=>s+l.q*(Number(prod(l.p)?.prix)||0),0);if(v)p.push(`produits ${eur(v)}`);return p.join(' + ')||'—'}
 function dueItems(cid){const os=DB.commandes.filter(o=>o.statut!=='annulee'&&(!cid||o.client_id===cid)&&due(o)>0).map(o=>({k:'commandes',o,lib:o.numero,det:lignesTxt(o,2)}));
   const fs=DB.frais.filter(x=>(!cid||x.client_id===cid)&&due(x)>0).map(x=>({k:'frais',o:x,lib:x.libelle,det:x.notes||''}));return os.concat(fs)}
+const PROV_T={traitement:['Traitement','📦'],transport:['Transport','🚚']};
+const provBal=(cid,t)=>round2(DB.provisions.filter(x=>x.client_id===cid&&(!t||x.type===t)).reduce((s,x)=>s+(x.sens==='versement'?1:-1)*(Number(x.montant)||0),0));
+const hasProv=cid=>DB.provisions.some(x=>x.client_id===cid);
+function provCard(c,ro){const L=DB.provisions.filter(x=>x.client_id===c.id).sort((a,b)=>(b.date+b.created).localeCompare(a.date+a.created));const du=dueTotal(c.id);
+  const bal=t=>{const b=provBal(c.id,t);return `<div class="kpi ${b<0?'bad':b>0?'ok':''}" style="padding:12px 14px"><div class="l">${PROV_T[t][1]} Provision ${PROV_T[t][0].toLowerCase()}</div><div class="v">${eur(b)}</div><div class="s">${b<0?'à recharger':b>0?'disponible':'—'}</div></div>`};
+  return `<div class="card"><div class="card-h"><h2>💰 Provisions</h2><span class="muted small">avances versées par le client</span>${ro?'':`<div class="sp"><button class="btn sm" data-act="provAdd" data-id="${c.id}">+ Versement</button><button class="btn sm ghost" data-act="provUse" data-id="${c.id}" data-t="transport">− Frais de transport</button>${provBal(c.id,'traitement')>0&&du>0?`<button class="btn sm primary" data-act="provPay" data-id="${c.id}">Régler ${eur(Math.min(du,provBal(c.id,'traitement')))} avec la provision</button>`:''}</div>`}</div>
+  <div class="card-b"><div class="kpis" style="grid-template-columns:repeat(2,1fr);margin:0 0 10px">${bal('traitement')}${bal('transport')}</div>
+  ${L.length?`<div class="tbl"><table><thead><tr><th>Date</th><th>Provision</th><th>Libellé</th><th class="r">Montant</th>${ro?'':'<th></th>'}</tr></thead><tbody>${L.slice(0,30).map(x=>`<tr><td class="nowrap">${fd(x.date)}</td><td>${PROV_T[x.type]?.[1]||''} ${PROV_T[x.type]?.[0]||x.type}</td><td>${h(x.ref||(x.sens==='versement'?'Versement':'Utilisation'))}${x.note?` <span class="muted small">· ${h(x.note)}</span>`:''}</td><td class="r"><b class="${x.sens==='versement'?'pos':'neg'}">${x.sens==='versement'?'+':'−'}${eur(x.montant)}</b></td>${ro?'':`<td class="r"><button class="x" data-act="provDel" data-id="${x.id}" title="Supprimer">×</button></td>`}</tr>`).join('')}</tbody></table></div>`:`<p class="muted small" style="margin:0">Aucune provision. Quand le client verse une avance (transport ou traitement), clique sur « + Versement ».</p>`}</div></div>`}
+function provForm(cid,mode){const c=client(cid),dep=mode==='use';
+  const body=`<div class="grid2">${field('Provision',chips('type',[['traitement','📦 Traitement'],['transport','🚚 Transport']],dep?'transport':'traitement'),'span2')}
+    ${field(dep?'Montant dépensé (€)':'Montant versé (€)',inp('montant','','type="number" step="0.01" min="0.01" required inputmode="decimal" autofocus'))}${field('Date',inp('date',todayStr(),'type="date" required'))}
+    ${field(dep?'Libellé':'Libellé (facultatif)',inp('ref','',`placeholder="${dep?'ex. Étiquettes Colissimo semaine 42':'ex. Virement du 14/10'}"`+(dep?' required':'')),'span2')}
+    ${field('Note',inp('note',''),'span2')}</div><p class="muted small" style="margin:0">Solde actuel : traitement ${eur(provBal(cid,'traitement'))} · transport ${eur(provBal(cid,'transport'))}</p>`;
+  modal((dep?'Utiliser la provision — ':'Versement de provision — ')+h(c.nom),body,{onSubmit(d){const m=round2(Number(String(d.montant).replace(',','.'))||0);if(m<=0){toast('Montant invalide');return}
+    closeModal();save('provisions',{id:uid('pv'),date:d.date,client_id:cid,type:d.type,sens:dep?'utilisation':'versement',montant:m,ref:(d.ref||'').trim()||(dep?'Utilisation':'Versement'),note:(d.note||'').trim()});toast(dep?`−${eur(m)} sur la provision ${d.type}`:`Provision ${d.type} +${eur(m)}`)}})}
+function provPay(cid){let left=provBal(cid,'traitement');if(left<=0){toast('Pas de provision traitement disponible');return}
+  const is=dueItems(cid).sort((a,b)=>a.o.date.localeCompare(b.o.date)),items=[],used=[];
+  for(const i of is){if(left<=0)break;const d=due(i.o),pay=round2(Math.min(d,left));left=round2(left-pay);
+    const o=i.o,np=round2((o.paiement==='partiel'?Number(o.montant_paye)||0:0)+pay);
+    items.push([i.k,pay>=d?{...o,paiement:'paye',montant_paye:o.montant,date_paiement:todayStr()}:{...o,paiement:'partiel',montant_paye:np,date_paiement:todayStr()}]);used.push([i.lib,pay])}
+  const tot=round2(used.reduce((s,x)=>s+x[1],0));if(!tot){toast('Rien à régler');return}
+  if(!confirm(`Régler ${used.length} ligne(s) pour ${eur(tot)} avec la provision traitement ?\nReste sur la provision : ${eur(left)}`))return;
+  items.push(['provisions',{id:uid('pv'),date:todayStr(),client_id:cid,type:'traitement',sens:'utilisation',montant:tot,ref:`Règlement ${used.length>3?used.length+' lignes':used.map(x=>x[0]).join(', ')}`,note:''}]);
+  saveMany(items,`Provision : ${eur(tot)} réglés pour ${cname(cid)}`);toast(`${eur(tot)} réglés avec la provision ✓`)}
 const dueTotal=cid=>round2(dueItems(cid).reduce((s,i)=>s+due(i.o),0));
 const upsOfMonth=(cid,m)=>DB.commandes.filter(o=>o.statut!=='annulee'&&(!cid||o.client_id===cid)&&o.date.startsWith(m)).reduce((s,o)=>s+(o.ups||0),0);
 const delayOf=o=>o.date_exp?Math.max(0,diffDays(o.date,o.date_exp)):null;
@@ -577,6 +602,7 @@ function describe(sheet,o,n){const ch=[];
     return ch.length?`${n.numero} : ${ch.join(', ')}`:''}
   if(sheet==='retours')return o?(o.decision!==n.decision?`Retour ${pname(n.produit_id)} → ${DECI[n.decision][0]}`:''):`Retour ${pname(n.produit_id)} ×${n.qte} · ${cname(n.client_id)} (${DECI[n.decision][0]})`;
   if(sheet==='frais')return o?(o.paiement!==n.paiement?`${n.libelle} → ${PAY[n.paiement][0]}`:(o.montant!==n.montant?`${n.libelle} : ${eur(n.montant)}`:'')):`${n.libelle} · ${eur(n.montant)} ajouté à ${cname(n.client_id)}`;
+  if(sheet==='provisions')return o?'':`Provision ${n.type} · ${n.sens==='versement'?'+':'−'}${eur(n.montant)} · ${cname(n.client_id)}${n.ref?' ('+n.ref+')':''}`;
   if(sheet==='mouvements')return `${MVT[n.type]||n.type} ${pname(n.produit_id)} ${n.qte>0?'+':''}${n.qte}`;
   if(sheet==='clients')return o?`Client ${n.nom} modifié`:`Client ${n.nom} créé`;
   if(sheet==='produits')return o?`Produit ${n.nom} modifié`:`Produit ${n.nom} créé`;
@@ -894,6 +920,7 @@ function vPayments(){
     ${kpi('Plus ancien impayé',items.length?oldest+' j':'—','',oldest>30?'bad':oldest>14?'warn':'')}
     ${kpi('Encaissé ce mois',eur(encM),monthLabel(m),'ok')}
   </div>
+  ${(()=>{const cs=DB.clients.filter(c=>hasProv(c.id));if(!cs.length)return'';return `<div class="card"><div class="card-h"><h2>💰 Provisions clients</h2><span class="muted small">avances versées · Total détenu ${eur(cs.reduce((s,c)=>s+provBal(c.id),0))}</span></div><div class="tbl"><table><thead><tr><th>Client</th><th class="r">📦 Traitement</th><th class="r">🚚 Transport</th><th class="r">Dû</th><th></th></tr></thead><tbody>${cs.map(c=>{const a=provBal(c.id,'traitement'),b=provBal(c.id,'transport'),du=dueTotal(c.id);return `<tr><td><button class="link" data-act="openClient" data-id="${c.id}">${h(c.nom)}</button></td><td class="r ${a<0?'neg':''}"><b>${eur(a)}</b></td><td class="r ${b<0?'neg':''}"><b>${eur(b)}</b>${b<0?' '+pill('à recharger','bad'):''}</td><td class="r">${du?eur(du):'—'}</td><td class="r nowrap">${a>0&&du>0?`<button class="btn sm primary" data-act="provPay" data-id="${c.id}">Régler avec la provision</button> `:''}<button class="btn sm ghost" data-act="provAdd" data-id="${c.id}">+ Versement</button></td></tr>`}).join('')}</tbody></table></div></div>`})()}
   ${groups.length?groups.map(g=>`<div class="card"><div class="card-h"><h2>${h(cname(g.cid))}</h2><span class="pill bad">${eur(g.tot)} dû</span><span class="muted small">${g.is.length} ligne(s) · depuis ${diffDays(g.is[0].o.date,t)} j</span>
     <div class="sp">${g.c?.telephone?`<button class="btn sm" data-act="relanceWa" data-id="${g.cid}">Relancer sur WhatsApp</button>`:''}<button class="btn sm ghost" data-act="relanceCopy" data-id="${g.cid}">Copier la relance</button><button class="btn sm" data-act="payAllClient" data-id="${g.cid}">Tout marquer payé</button></div></div>
     <div class="tbl"><table><thead><tr><th>Date</th><th>Libellé</th><th>Détail</th><th class="r">Montant</th><th class="r">Déjà payé</th><th class="r">Reste</th><th class="r">Âge</th><th></th></tr></thead><tbody>
@@ -902,7 +929,7 @@ function vPayments(){
   return{title:'Paiements',html};
 }
 function relanceText(cid){const c=client(cid);const is=dueItems(cid).sort((a,b)=>a.o.date.localeCompare(b.o.date));const tot=is.reduce((s,i)=>s+due(i.o),0);
-  return `Bonjour${c?.contact?' '+c.contact:''},\nPetit rappel : ${is.length} élément(s) restent à régler pour un total de ${eur(tot)}.\n${is.map(i=>`• ${i.lib} du ${fd(i.o.date)} : ${eur(due(i.o))}`).join('\n')}\nMerci beaucoup !\nCentr Supply`}
+  return `Bonjour${c?.contact?' '+c.contact:''},\nPetit rappel : ${is.length} élément(s) restent à régler pour un total de ${eur(tot)}.\n${is.map(i=>`• ${i.lib} du ${fd(i.o.date)} : ${eur(due(i.o))}`).join('\n')}${(()=>{const pt=provBal(cid,'transport');return pt<0?`\nProvision transport à recharger : ${eur(-pt)}`:''})()}\nMerci beaucoup !\nCentr Supply`}
 
 /* ============ VUE : Retours ============ */
 function retText(dossier){const rs=DB.retours.filter(r=>(r.dossier||r.id)===dossier);if(!rs.length)return'';const r0=rs[0],c=client(r0.client_id),o=DB.commandes.find(x=>x.id===r0.commande_id);
@@ -1040,6 +1067,7 @@ function vClient(){
     ${(()=>{const mg=margeClient(c.id,t.slice(0,7));return kpi('Marge ce mois',eur(mg.marge),mg.ca?`${num((mg.taux||0)*100)} % · CA ${eur(mg.ca)} − coûts ${eur(mg.cout)}`:(mg.cout?`coûts ${eur(mg.cout)} (logistique interne)`:'—'),mg.marge<0?'bad':mg.ca?'ok':'')})()}
     ${logi?kpi('Ses prix',eur(pr.prep),`upsell ${eur(pr.upsell)} · retour ${eur(pr.retour)}`,'',`data-act="editClient" data-id="${c.id}"`):''}
   </div>
+  ${provCard(c)}
   <div class="card releve"><div class="card-h"><h2>Note du mois — ${h(c.nom)}</h2>
     <div class="sp noprint"><select data-f="releve.month" style="padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:var(--panel)">${monthsList().map(x=>opt(x,monthLabel(x),m)).join('')}</select>
     <button class="btn sm ghost" data-act="releveCopy" data-id="${c.id}">Copier</button>${c.telephone?`<button class="btn sm ghost" data-act="releveWa" data-id="${c.id}">WhatsApp</button>`:''}<button class="btn sm ghost" data-act="printReleve">Imprimer / PDF</button>${r.rest>0?`<button class="btn sm" data-act="relevePaid" data-id="${c.id}">Tout est payé ✓</button>`:''}</div></div>
@@ -1064,7 +1092,7 @@ function vClient(){
   return{title:c.nom,html};
 }
 function releveText(cid){const r=releveData(cid,F.releve.month);
-  return `Bonjour${r.c.contact?' '+r.c.contact:''},\nVoici la note ${monthLabel(F.releve.month)} (HT) :\n• ${r.os.length} commande(s)${r.ups?` dont ${r.ups} upsell(s)`:''} : ${eur(r.cmd)}\n${r.fr.map(x=>`• ${x.libelle} : ${eur(x.montant)}`).join('\n')}${r.fr.length?'\n':''}Total : ${eur(r.total)}${r.rest>0?`\nReste à régler : ${eur(r.rest)}`:''}\nMerci pour votre confiance !\nCentr Supply`}
+  return `Bonjour${r.c.contact?' '+r.c.contact:''},\nVoici la note ${monthLabel(F.releve.month)} (HT) :\n• ${r.os.length} commande(s)${r.ups?` dont ${r.ups} upsell(s)`:''} : ${eur(r.cmd)}\n${r.fr.map(x=>`• ${x.libelle} : ${eur(x.montant)}`).join('\n')}${r.fr.length?'\n':''}Total : ${eur(r.total)}${r.rest>0?`\nReste à régler : ${eur(r.rest)}`:''}${hasProv(cid)?`\nProvisions : traitement ${eur(provBal(cid,'traitement'))} · transport ${eur(provBal(cid,'transport'))}`:''}\nMerci pour votre confiance !\nCentr Supply`}
 
 /* ============ VUE : Étiquettes de bacs ============ */
 const LABEL_FMT={a4:{l:'Planche A4 · 21 étiquettes (70 × 42,3 mm)',w:70,h:42.3,cols:3,rows:7,qr:34},a4_24:{l:'Planche A4 · 24 étiquettes (70 × 37 mm)',w:70,h:37.1,cols:3,rows:8,qr:30},brother:{l:'Imprimante étiquettes · 62 × 29 mm',w:62,h:29,roll:1,qr:24},big:{l:'Grand format A6 (bacs palette) · 148 × 105 mm',w:148,h:105,roll:1,qr:80}};
@@ -1270,6 +1298,7 @@ function vPortal(){
   <div class="kpis">${kpi('Commandes ce mois',live.filter(o=>o.date.startsWith(m)).length)}${kpi('En préparation',live.filter(o=>['a_preparer','preparee'].includes(o.statut)).length)}${kpi('Délai d’expédition (30 j)',fmtDelay(ds.avg),ds.n?`${num(ds.j1*100)} % à J+1 max`:'')}${kpi('Taux de retour (90 j)',sold90?num(ret90/sold90*100)+' %':'—')}${isLogi(c)?kpi('Note du mois',eur(r.total),r.rest>0?`reste ${eur(r.rest)}`:'réglée','',''):''}</div>
   <div class="cols"><div class="card"><div class="card-h"><h2>Dernières commandes</h2></div><div class="tbl"><table><thead><tr><th>Date</th><th>N°</th><th>Articles</th><th>Statut</th><th>Suivi</th></tr></thead><tbody>${DB.commandes.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,25).map(o=>`<tr><td class="nowrap">${fd(o.date)}</td><td>${h(o.numero)}</td><td class="small"><div class="trunc" style="max-width:260px">${h(lignesTxt(o,3))}</div></td><td>${pill(ST[o.statut][0],ST[o.statut][1])}</td><td class="small">${h(o.suivi||'')}</td></tr>`).join('')}</tbody></table></div></div>
   <div class="stack"><div class="card"><div class="card-h"><h2>Votre stock</h2></div><div class="tbl"><table><tbody>${prods.map(p=>{const f=forecast(p),nl=nextLot(p.id);return`<tr><td>${h(p.nom)}${nl?`<br>${dlcPill(nl)}`:''}</td><td class="r"><b class="${f.st<=0?'neg':''}">${num(f.st)}</b></td><td class="r small muted">${isFinite(f.days)?'≈ '+Math.round(f.days)+' j':'—'}</td><td>${pill(LVL[f.lvl].l,LVL[f.lvl].t)}${f.reco&&['rupture','now','soon'].includes(f.lvl)?`<br><span class="small muted">réassort conseillé : ${f.reco} u.</span>`:''}</td></tr>`}).join('')||'<tr><td class="muted">Aucun produit</td></tr>'}</tbody></table></div></div>
+  ${hasProv(c.id)?provCard(c,true):''}
   ${hasCons(c)?`<div class="card"><div class="card-h"><h2>Vos consignes de préparation</h2><span class="muted small">à valider avec nous</span></div><div class="card-b">${stepsHtml(c)}</div></div>`:''}
   <div class="card"><div class="card-h"><h2>Retours</h2></div><div class="tbl"><table><tbody>${DB.retours.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,20).map(x=>`<tr><td class="nowrap">${fd(x.date)}</td><td>${h(pname(x.produit_id))} ×${x.qte}</td><td>${pill(ETATS[x.etat][0],ETATS[x.etat][1])}</td><td>${pill(DECI[x.decision][0],DECI[x.decision][1])}</td></tr>`).join('')||'<tr><td class="muted">Aucun retour</td></tr>'}</tbody></table></div></div></div></div>
   <p class="muted small" style="text-align:center;margin-top:20px">Page en lecture seule · Centr Supply · WhatsApp 07 75 75 81 21</p>`;
@@ -1704,7 +1733,7 @@ const ACT={
   go:d=>go(d.r),close:()=>closeModal(),
   newOrder:()=>orderForm(),newOrderFor:d=>orderForm(null,d.id),editOrder:d=>{closeModal();orderForm(findO(d.id))},
   newReturn:()=>{closeModal();returnNewForm()},newReturnFor:d=>{closeModal();returnNewForm(d.id)},editReturn:d=>{closeModal();returnForm(DB.retours.find(r=>r.id===d.id))},
-  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},ecartDel:d=>{saveParam('ecarts',JSON.stringify(ecarts().filter(e=>e.id!==d.id)));render()},ecartsClear:()=>{if(confirm('Effacer tous les écarts ?')){saveParam('ecarts','[]');render()}},
+  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},provAdd:d=>provForm(d.id,'add'),provUse:d=>provForm(d.id,'use'),provPay:d=>provPay(d.id),provDel:d=>{const x=DB.provisions.find(y=>y.id===d.id);if(x&&confirm(`Supprimer cette ligne (${x.sens==='versement'?'+':'−'}${eur(x.montant)}) ?`)){removeRow('provisions',d.id)}},ecartDel:d=>{saveParam('ecarts',JSON.stringify(ecarts().filter(e=>e.id!==d.id)));render()},ecartsClear:()=>{if(confirm('Effacer tous les écarts ?')){saveParam('ecarts','[]');render()}},
   newProduct:()=>productForm(),newProductFor:d=>{closeModal();productForm(null,d.id)},editProduct:d=>{closeModal();productForm(prod(d.id))},prodHist:d=>prodHistory(d.id),
   importOrders:d=>{closeModal();importForm(d.id)},newClient:()=>clientForm(),editClient:d=>clientForm(client(d.id)),openClient:d=>go('client',d.id),
   ordersOfClient:d=>{F.orders={q:'',client:d.id,statut:'',pay:'',month:''};go('orders')},

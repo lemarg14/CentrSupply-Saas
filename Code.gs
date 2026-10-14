@@ -19,6 +19,7 @@ const SCHEMA = {
   retours:    ['id','dossier','date','client_id','commande_id','produit_id','qte','motif','etat','decision','notes','created','updated'],
   mouvements: ['id','date','produit_id','type','qte','lot','dlc','note','created','updated'],
   frais:      ['id','date','client_id','libelle','qte','pu','montant','paiement','montant_paye','date_paiement','auto','notes','created','updated'],
+  provisions: ['id','date','client_id','type','sens','montant','ref','note','created','updated'],
   parametres: ['id','valeur','created','updated'],
   journal:    ['id','date','user','sheet','ref','action','created','updated']
 };
@@ -139,6 +140,7 @@ function portal(tok) {
     retours: all.retours.filter(mine),
     mouvements: all.mouvements.filter(function (m) { return ids[String(m.produit_id)]; }),
     frais: all.frais.filter(mine),
+    provisions: (all.provisions || []).filter(mine),
     parametres: all.parametres.filter(function (x) { return x.id === 'prix'; }),
     journal: []
   };
