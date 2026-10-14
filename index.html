@@ -1115,7 +1115,8 @@ function onScan(raw){
   const idx=SC.picks.findIndex(x=>x.bin===code);
   if(idx<0){feedback(false);scanMsg(`✗ ${code} : aucun article à prendre dans ce bac`,false);return}
   if(SC.done.has(idx)){feedback(false);scanMsg(`Bac ${code} déjà prélevé`,false);return}
-  SC.done.add(idx);feedback(true);scanMsg(idx===SC.i?`✓ ${code} prélevé`:`✓ ${code} prélevé (hors ordre)`,true);advance();
+  if(idx!==SC.i){const cur=SC.picks[SC.i];feedback(false);scanMsg(`✗ Pas encore ${code} — prends d’abord ${cur.bin||'le produit affiché'} (×${cur.items.reduce((a,i)=>a+i.q,0)})`,false);return}
+  SC.done.add(idx);feedback(true);scanMsg(`✓ ${code} prélevé`,true);advance();
 }
 function advance(){const n=SC.picks.length;for(let k=0;k<n;k++){const j=(SC.i+k)%n;if(!SC.done.has(j)){SC.i=j;scanDraw();return}}SC.phase='pack';SC.oi=0;camStop();scanDraw();}
 function camStop(){if(SC.raf)cancelAnimationFrame(SC.raf);SC.raf=0;if(SC.stream){SC.stream.getTracks().forEach(t=>t.stop());SC.stream=null}}
