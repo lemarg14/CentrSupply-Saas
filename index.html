@@ -618,12 +618,12 @@ function sopData(){const r=DB.parametres.find(x=>x.id==='process');let g=null;tr
 /* ===== Scan des bacs ===== */
 const LIB={jsqr:'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',qr:'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'};
 const _libs={};function loadLib(k){return _libs[k]||(_libs[k]=new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=LIB[k];sc.onload=()=>res();sc.onerror=()=>{delete _libs[k];rej(new Error('Connexion requise pour charger le module'))};document.head.appendChild(sc)}))}
-const binKey=v=>String(v||'').trim().toUpperCase().replace(/^CS:BIN:/,'').replace(/\s+/g,' ');
+const binKey=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase().replace(/^CS:BIN:/,'').replace(/\s+/g,' ');
 const binCode=v=>'CS:BIN:'+binKey(v);
 function allBins(){const m={};DB.produits.filter(p=>p.actif&&p.emplacement).forEach(p=>{const k=binKey(p.emplacement);(m[k]||(m[k]=[])).push(p)});
   let extra=[];try{const r=DB.parametres.find(x=>x.id==='bins');extra=r&&r.valeur?JSON.parse(r.valeur):[]}catch(e){}extra.forEach(k=>{k=binKey(k);if(k&&!m[k])m[k]=[]});
   return Object.keys(m).sort((a,b)=>a.localeCompare(b,'fr',{numeric:true})).map(k=>({bin:k,prods:m[k]}))}
-function qrSvg(text,size){const q=window.qrcode(0,'M');q.addData(text);q.make();const n=q.getModuleCount(),qz=2,tot=n+qz*2;let d='';for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(q.isDark(r,c))d+=`M${c+qz} ${r+qz}h1v1h-1z`;
+function qrSvg(text,size){if(window.qrcode.stringToBytesFuncs)window.qrcode.stringToBytes=window.qrcode.stringToBytesFuncs['UTF-8'];const q=window.qrcode(0,'M');q.addData(text);q.make();const n=q.getModuleCount(),qz=2,tot=n+qz*2;let d='';for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(q.isDark(r,c))d+=`M${c+qz} ${r+qz}h1v1h-1z`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${tot} ${tot}" width="${size}" height="${size}" shape-rendering="crispEdges"><rect width="${tot}" height="${tot}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`}
 function sessions(){const r=DB.parametres.find(x=>x.id==='sessions');try{return r&&r.valeur?JSON.parse(r.valeur):[]}catch(e){return[]}}
 function cadence(days){const from=addDays(todayStr(),-(days-1));const ss=sessions().filter(x=>x.d>=from&&x.min>0);const cmd=ss.reduce((a,x)=>a+x.cmd,0),min=ss.reduce((a,x)=>a+x.min,0),art=ss.reduce((a,x)=>a+x.art,0);
@@ -1108,8 +1108,8 @@ function feedback(ok){try{navigator.vibrate&&navigator.vibrate(ok?80:[200,80,200
   const fl=$('#scFlash');if(fl){clearTimeout(SC.flT);fl.textContent=ok?'✓':'✗';fl.className='sc-flash '+(ok?'ok':'bad');SC.flT=setTimeout(()=>{const f=$('#scFlash');if(f)f.className='sc-flash'},ok?450:700)}}
 function scanMsg(t,ok){SC.msg=t;SC.msgT=ok?'ok':'bad';const m=$('#scMsg');if(m){m.textContent=t;m.className='sc-msg '+SC.msgT}}
 function onScan(raw){
-  if(!SC.on)return;const code=binKey(raw);const rd=$('#scRead');if(rd)rd.textContent='Lu : '+(String(raw||'').trim()||'(vide)').slice(0,48);
-  if(!code){feedback(false);scanMsg('✗ QR lu mais vide — réimprime cette étiquette',false);return}
+  if(!SC.on)return;const code=binKey(raw);if(!String(raw||'').trim())return;const rd=$('#scRead');if(rd)rd.textContent='Lu : '+String(raw).trim().slice(0,48);
+  if(!code)return;
   const now=Date.now();if(code===SC.last&&now-SC.lastT<1500){SC.lastT=now;return}SC.last=code;SC.lastT=now;
   if(SC.phase!=='pick'){scanMsg(`Bac ${code} scanné — la cueillette est terminée`,false);feedback(false);return}
   const idx=SC.picks.findIndex(x=>x.bin===code);
@@ -1135,7 +1135,7 @@ async function camStart(){
       else{const vw=v.videoWidth,vh=v.videoHeight;let sx=0,sy=0,sw=vw,sh=vh,w;
         if(fr%2){const side=Math.min(vw,vh)*.8;sx=(vw-side)/2;sy=(vh-side)/2;sw=sh=side;w=Math.min(640,Math.round(side))}else w=Math.min(800,vw);
         const hh=Math.round(sh*w/sw);cv.width=w;cv.height=hh;cx.drawImage(v,sx,sy,sw,sh,0,0,w,hh);const im=cx.getImageData(0,0,w,hh);
-        const r=window.jsQR(im.data,w,hh,{inversionAttempts:'attemptBoth'});if(r&&r.data!=null)onScan(r.data)}}catch(e){SC.err=String(e&&e.message||e)}busy=false};
+        const r=window.jsQR(im.data,w,hh,{inversionAttempts:'dontInvert'});if(r&&r.data!=null)onScan(r.data)}}catch(e){SC.err=String(e&&e.message||e)}busy=false};
   SC.raf=requestAnimationFrame(loop);
 }
 function scanDraw(){

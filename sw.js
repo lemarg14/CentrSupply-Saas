@@ -1,5 +1,5 @@
 // Centr Supply Ops — rend l'app installable et utilisable hors ligne (page en cache).
-const CACHE = 'centr-ops-v3';
+const CACHE = 'centr-ops-v4';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', 'index.html', 'manifest.webmanifest', 'icon.svg']).catch(() => {})));
   self.skipWaiting();
