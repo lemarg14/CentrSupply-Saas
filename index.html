@@ -194,6 +194,8 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;pad
 .stp .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--accent-soft);flex:none;font-size:14px}
 .stp .tx{flex:1;min-width:0}.stp .tx b{display:block;font-weight:650}.stp .tx small{color:var(--muted)}
 .stp .n{font-weight:800;color:var(--accent);min-width:18px}
+.stp.off{opacity:.45}.stp.off .tx b{text-decoration:line-through;font-weight:500}
+.stp.chk{cursor:pointer;user-select:none}.stp.chk .n{font-size:18px}.stp.done{border-color:var(--ok);background:var(--ok-soft,rgba(74,222,128,.12))}.stp.done .tx b{opacity:.7}
 .attn{padding:10px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-weight:600;white-space:pre-wrap;margin-top:8px}
 .sop h3{margin:0 0 8px;font-size:15px}
 .sop ol{margin:0;padding-left:20px}.sop li{padding:3px 0}
@@ -331,6 +333,7 @@ body.role-prep .search,body.role-prep [data-act="newOrder"]{display:none!importa
 .sc-item .q{font-size:34px;font-weight:800;min-width:64px;font-variant-numeric:tabular-nums}
 .sc-item .nm{flex:1;min-width:0}.sc-item .nm b{display:block;font-size:17px}.sc-item .nm small{color:var(--muted)}
 .sc-msg{min-height:22px;font-weight:700;text-align:center}
+.sc-cons{border:2px solid var(--accent);border-radius:14px;padding:12px;background:var(--panel)}.sc-cons-h{font-weight:800;font-size:16px;margin-bottom:8px}.sc-cons .stp{padding:12px}.sc-cons .stp .tx b{font-size:16px}
 .sc-hint{margin-top:14px;padding:12px;border-radius:12px;background:var(--accent-soft);color:var(--ink);font-weight:700;text-align:center;font-size:15px}
 .sc-warn{margin-top:14px;padding:12px;border-radius:12px;background:var(--warn-soft);color:var(--warn);font-weight:600;font-size:14px}
 .sc-msg.ok{color:var(--ok)}.sc-msg.bad{color:var(--bad)}
@@ -601,12 +604,14 @@ const STEP_TYPES={emballage:['📦','Emballage'],protection:['🫧','Protection'
 const STEP_COND={toujours:'Toujours',multi:'Si 2 articles ou +',mono:'Si 1 seul article',ups:'Si upsell',premiere:'1re commande du client final'};
 const STEP_PRESETS=[['insert','Carte de remerciement'],['protection','Papier de soie'],['protection','Papier bulle'],['fermeture','Sticker logo pour fermer'],['insert','Flyer promo'],['insert','Échantillon offert'],['controle','Vérifier produit et quantité avant fermeture'],['controle','Photo du colis avant fermeture'],['etiquette','Étiquette fragile']];
 const consOf=c=>c&&c.consignes?c.consignes:{etapes:[],attention:'',photo:''};
+function condOk(st,o){if(!o)return true;const q=qtyOf(o);switch(st.cond){case 'multi':return q>=2;case 'mono':return q<=1;case 'ups':return !!o.ups;default:return true}}
 function stepApplies(st,o){if(o&&st.from&&o.date<st.from)return false;const q=o?qtyOf(o):1;switch(st.cond){case 'multi':return q>=2;case 'mono':return q<=1;case 'ups':return !!(o&&o.ups);default:return true}}
-function packSteps(c,o){const out=[];const pk=packOf(c);if(pk)out.push({type:'emballage',txt:pk.nom,cond:'toujours',conso:pk.id,q:1,auto:1});return out.concat(consOf(c).etapes.filter(st=>!o||stepApplies(st,o)))}
+function packSteps(c,o){const out=[];const pk=packOf(c);if(pk)out.push({type:'emballage',txt:pk.nom,cond:'toujours',conso:pk.id,q:1,auto:1});return out.concat(consOf(c).etapes.map(st=>({...st,off:!condOk(st,o)})))}
 const hasCons=c=>!!(c&&(consOf(c).etapes.length||consOf(c).attention));
 function consoUse(c,o){const u={};packSteps(c,o).forEach(st=>{if(st.conso&&prod(st.conso)&&(st.auto||stepApplies(st,o)))u[st.conso]=(u[st.conso]||0)+(Number(st.q)||1)});return u}
-function stepsHtml(c,o,compact){const st=packSteps(c,o),cs=consOf(c);if(!st.length&&!cs.attention)return `<p class="muted small" style="margin:0">Aucune consigne pour ce client.${ROLE==='prep'?'':` <button class="link" data-act="consEdit" data-id="${c.id}">Les définir</button>`}</p>`;
-  return `<div class="steps">${st.map((x,i)=>`<div class="stp"><span class="n">${i+1}</span><span class="ic">${STEP_TYPES[x.type]?.[0]||'•'}</span><span class="tx"><b>${h(x.txt)}</b>${compact?'':`<small>${STEP_TYPES[x.type]?.[1]||''}${x.cond&&x.cond!=='toujours'?' · '+STEP_COND[x.cond]:''}${x.conso&&prod(x.conso)&&!x.auto?` · ${Number(x.q)||1} × ${h(pname(x.conso))} déduit du stock`:''}</small>`}</span>${compact&&x.cond&&x.cond!=='toujours'?pill(STEP_COND[x.cond],'warn'):''}</div>`).join('')}</div>${cs.attention?`<div class="attn">⚠ ${h(cs.attention)}</div>`:''}${cs.photo?`<p class="small" style="margin:8px 0 0"><a href="${h(cs.photo)}" target="_blank" rel="noopener">📷 Voir le colis type</a></p>`:''}`}
+function stepsHtml(c,o,compact,check){const st=packSteps(c,o),cs=consOf(c);if(!st.length&&!cs.attention)return `<p class="muted small" style="margin:0">Aucune consigne pour ce client.${ROLE==='prep'?'':` <button class="link" data-act="consEdit" data-id="${c.id}">Les définir</button>`}</p>`;
+  let k=0;const on=st.filter(x=>!x.off).length;
+  return `${o&&on<st.length?`<p class="small muted" style="margin:0 0 6px">${on} étape(s) pour ce colis · les étapes barrées ne concernent pas cette commande</p>`:''}<div class="steps">${st.map((x,i)=>{const key=check&&!x.off?`${o.id}:${i}`:'',done=key&&SC.chk&&SC.chk.has(key);return `<div class="stp${x.off?' off':''}${key?' chk':''}${done?' done':''}"${key?` data-sc="step" data-k="${key}"`:''}><span class="n">${x.off?'–':key?(done?'✓':'○'):++k}</span><span class="ic">${STEP_TYPES[x.type]?.[0]||'•'}</span><span class="tx"><b>${h(x.txt)}</b>${compact?'':`<small>${STEP_TYPES[x.type]?.[1]||''}${x.cond&&x.cond!=='toujours'?' · '+STEP_COND[x.cond]:''}${x.conso&&prod(x.conso)&&!x.auto?` · ${Number(x.q)||1} × ${h(pname(x.conso))} déduit du stock`:''}</small>`}</span>${x.cond&&x.cond!=='toujours'?pill(x.off?'Pas pour ce colis':STEP_COND[x.cond],x.off?'':'warn'):''}</div>`}).join('')}</div>${cs.attention?`<div class="attn">⚠ ${h(cs.attention)}</div>`:''}${cs.photo?`<p class="small" style="margin:8px 0 0"><a href="${h(cs.photo)}" target="_blank" rel="noopener">📷 Voir le colis type</a></p>`:''}`}
 const DEFAULT_SOP=[
  ['Arrivée et poste de travail',['Ouvrir l’outil sur le téléphone ou l’ordi du poste (menu Préparation).','Vérifier le stock d’emballages : cartons, enveloppes, papier de soie, cartes, scotch.','Ranger le poste : rien d’autre que les produits de la commande en cours sur la table.']],
  ['Réception de stock',['Compter les cartons reçus et vérifier l’état (photo si abîmé).','Compter les produits par référence, puis Réception dans l’outil (quantités, lot et DLC si demandé).','Ranger dans le bac indiqué par l’emplacement. Jamais deux produits différents dans le même bac sans le signaler.']],
@@ -857,7 +862,7 @@ function vPicking(){
       ${rows.map(r=>{const st=stockOf(r.p)+r.q;return`<tr class="${done[r.p]?'pick-done':''}"><td class="ck"><input type="checkbox" data-act="pickTick" data-id="${r.p}" ${done[r.p]?'checked':''} aria-label="Prélevé"></td><td><b>${h(r.pr?.emplacement||'—')}</b></td><td>${h(pname(r.p))}${r.pr?.sku?`<br><span class="muted small">${h(r.pr.sku)} · ${h(cname(r.pr.client_id))}</span>`:''}${(()=>{const a=pickLots(r.p,r.q);if(!a)return'';return `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${a.lots.map(l=>pill(`${l.take} × ${lotLabel(l)}`,l.sans?'':l.etat==='proche'?'warn':'accent')).join('')}${a.manque>0?pill(`${a.manque} sans lot valide`,'bad'):''}</div>`})()}</td><td class="r"><span class="pick-q">${r.q}</span></td><td class="r">${r.n}</td><td class="r ${st<r.q?'neg':''}">${num(st)}${st<r.q?' ⚠':''}</td></tr>`}).join('')}
       </tbody></table></div>
       <div class="card-b small muted" style="padding-top:10px">Emballages & consommables à sortir : ${Object.entries(packs).map(([k,v])=>`<b style="color:var(--ink)">${h(k)} ×${v}</b>`).join(' · ')}</div></div>
-    <div class="stack"><div class="card"><div class="card-h"><h2>Consignes par client</h2><span class="muted small">à suivre pour chaque colis</span></div><div class="card-b">${pcl.map(c=>`<details ${pcl.length<=2?'open':''} style="margin-bottom:10px"><summary style="cursor:pointer;font-weight:700;margin-bottom:8px">${h(c.nom)} <span class="muted small">· ${os.filter(o=>o.client_id===c.id).length} commande(s)</span>${hasCons(c)?'':' '+pill('pas de consigne','warn')}</summary>${stepsHtml(c,null,true)}</details>`).join('')}</div></div>
+    <div class="stack"><div class="card"><div class="card-h"><h2>Consignes par client</h2><span class="muted small">à suivre pour chaque colis</span></div><div class="card-b">${pcl.map(c=>`<details open style="margin-bottom:10px"><summary style="cursor:pointer;font-weight:700;margin-bottom:8px">${h(c.nom)} <span class="muted small">· ${os.filter(o=>o.client_id===c.id).length} commande(s)</span>${hasCons(c)?'':' '+pill('pas de consigne','warn')}</summary>${stepsHtml(c,null,true)}</details>`).join('')}</div></div>
     <div class="card"><div class="card-h"><h2>Commandes</h2></div><div class="tbl"><table><tbody>
       ${os.map(o=>{const age=diffDays(o.date,t);return`<tr><td><b>${h(o.numero)}</b> ${age>=2?pill('+'+age+' j','bad'):age===1?pill('J+1','warn'):''}<br><span class="muted small nowrap">${h(cname(o.client_id))} · ${fd(o.date)}</span></td><td class="small"><div class="trunc" style="max-width:170px">${h(lignesTxt(o,4))}</div>${o.ups?`<span class="upsTag">★ ${o.ups} upsell</span>`:''}</td>
         <td class="r noprint" style="white-space:nowrap"><button class="btn sm ghost" data-act="consShow" data-id="${o.id}" title="Consignes pour cette commande">📋</button> <button class="btn sm primary" data-act="setSt" data-id="${o.id}" data-v="expediee" title="Marquer expédiée">Expédiée ✓</button></td></tr>`}).join('')}
@@ -1161,8 +1166,8 @@ function scanDraw(){
     else{const c=client(o.client_id);body=`<div class="sc-body"><div class="sc-bar"><i style="width:${nPack/nOrd*100}%"></i></div>
       <div class="sc-order"><div class="lbl small muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.08em">Colis ${nPack+SC.skipped.size+1} / ${nOrd}</div><h2>${h(o.numero)}</h2><div class="muted">${h(cname(o.client_id))}${o.destinataire?' · '+h(o.destinataire):''}</div>
         ${o.lignes.map(l=>`<div class="sc-item"><span class="q">×${l.q}</span><span class="nm"><b>${h(pname(l.p))}</b></span></div>`).join('')}${o.ups?`<div class="sc-item"><span class="q">★</span><span class="nm"><b>${o.ups} upsell</b></span></div>`:''}</div>
-      ${c?`<div>${stepsHtml(c,o,true)}</div>`:''}
-      <button class="btn primary sc-big" data-sc="packed" data-id="${o.id}">Colis prêt · Expédiée ✓</button>
+      ${c?`<div class="sc-cons"><div class="sc-cons-h">📋 Consignes ${h(c.nom)} <span class="small muted">· touche chaque étape quand c’est fait</span></div>${stepsHtml(c,o,false,true)}</div>`:''}
+      ${(()=>{const n=c?packSteps(c,o).filter(x=>!x.off).length:0,d=n?packSteps(c,o).filter((x,i)=>!x.off&&SC.chk&&SC.chk.has(`${o.id}:${i}`)).length:0;return `<button class="btn primary sc-big" data-sc="packed" data-id="${o.id}">${n&&d<n?`Colis prêt (${d}/${n} étapes) · Expédiée ✓`:'Colis prêt · Expédiée ✓'}</button>`})()}
       <button class="btn ghost" data-sc="skipOrder" data-id="${o.id}">Passer cette commande</button></div>`}
   }
   if(!$('#scTopW'))ui.innerHTML='<div id="scTopW"></div><div id="scCamW"></div><div id="scPane" style="flex:1;min-height:0;display:flex;flex-direction:column"></div><div class="sc-flash" id="scFlash"></div>';
@@ -1179,7 +1184,8 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-sc]');if(!
   else if(a==='nobin'){SC.done.add(SC.i);SC.nobin=(SC.nobin||0)+1;feedback(true);scanMsg('✓ Validé (produit sans bac)',true);advance()}
   else if(a==='help'){SC.help=!SC.help;scanDraw();if(SC.help)setTimeout(()=>$('#scManual input')?.focus(),50)}
   else if(a==='skip'){const n=SC.picks.length;for(let k=1;k<=n;k++){const j=(SC.i+k)%n;if(!SC.done.has(j)){SC.i=j;break}}scanMsg('',true);scanDraw()}
-  else if(a==='packed'){const o=findO(b.dataset.id);SC.packed.add(o.id);feedback(true);save('commandes',setStatus(o,'expediee'));scanDraw()}
+  else if(a==='step'){SC.chk=SC.chk||new Set();const k=b.dataset.k;SC.chk.has(k)?SC.chk.delete(k):SC.chk.add(k);const y=$('#scPane .sc-body')?.scrollTop;scanDraw();const bd=$('#scPane .sc-body');if(bd&&y!=null)bd.scrollTop=y}
+  else if(a==='packed'){const o=findO(b.dataset.id);{const c=client(o.client_id);if(c){const st=packSteps(c,o).map((x,i)=>({x,i})).filter(z=>!z.x.off),miss=st.filter(z=>!(SC.chk&&SC.chk.has(`${o.id}:${z.i}`)));if(miss.length&&st.length&&!confirm(`Étapes pas cochées :\n• ${miss.map(z=>z.x.txt).join('\n• ')}\n\nFermer le colis quand même ?`))return}}SC.packed.add(o.id);feedback(true);save('commandes',setStatus(o,'expediee'));scanDraw()}
   else if(a==='skipOrder'){SC.skipped.add(b.dataset.id);scanDraw()}
 },true);
 /* Douchette (lecteur USB / Bluetooth) : elle « tape » le code puis Entrée */
