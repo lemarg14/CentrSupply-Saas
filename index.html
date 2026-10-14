@@ -131,6 +131,8 @@ svg.bars .bl{fill:var(--muted);font-size:11px}svg.bars .bv{fill:var(--ink);font-
 .spark{color:var(--accent);display:block}
 .big{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
 .neg{color:var(--bad)}.pos{color:var(--ok)}
+.repbars{display:flex;gap:4px;align-items:flex-end;height:190px;overflow-x:auto;padding-bottom:2px}.rb{flex:1;min-width:22px;display:flex;flex-direction:column;align-items:center;height:100%}.rb .col{flex:1;width:100%;max-width:38px;position:relative;display:flex;align-items:flex-end;justify-content:center}.rb .col i{position:absolute;bottom:0;left:0;right:0;background:var(--panel2);border:1px solid var(--line);border-radius:6px 6px 2px 2px}.rb .col b{position:absolute;bottom:0;left:22%;right:22%;background:var(--accent);border-radius:4px 4px 1px 1px}.rb .rv{font-size:11px;font-weight:700;min-height:15px}.rb .rd{font-size:10.5px;color:var(--muted);margin-top:4px;white-space:nowrap}.rb .rm{font-size:9.5px;color:var(--accent)}
+.lg{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:4px}.lg.a{background:var(--panel2);border:1px solid var(--line)}.lg.b{background:var(--accent)}
 details.help{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:16px;color:var(--muted)}
 details.help summary{cursor:pointer;color:var(--ink);font-weight:550}
 details.help p{margin:8px 0 0}
@@ -457,7 +459,7 @@ let CFG=LS.get('cs_cfg',{url:'',token:''});
 let DB=emptyDB();
 let Q=LS.get('cs_queue',[]);
 let ROUTE=LS.get('cs_route','home'), PARAM=null;
-const F={orders:{q:'',client:'',statut:'',pay:'',month:'',ups:''},stock:{q:'',owner:'all',lvl:''},returns:{client:'',month:'',dec:''},forecast:{owner:'all'},pick:{client:'',inc:'a_preparer'},releve:{month:todayStr().slice(0,7)}};
+const F={orders:{q:'',client:'',statut:'',pay:'',month:'',ups:''},stock:{q:'',owner:'all',lvl:''},returns:{client:'',month:'',dec:''},forecast:{owner:'all'},pick:{client:'',inc:'a_preparer'},rep:{per:'7',u:''},releve:{month:todayStr().slice(0,7)}};
 const SEL=new Set();
 let SYNC={state:'local',msg:''};
 function emptyDB(){const o={};Object.keys(SCHEMA).forEach(k=>o[k]=[]);return o}
@@ -585,7 +587,7 @@ const fmtDelay=v=>v==null?'—':(v<0.5?'J+0':'J+'+num(v));
 function delayStats(cid,days){const from=addDays(todayStr(),-((days||30)-1));const ds=DB.commandes.filter(o=>o.statut!=='annulee'&&(!cid||o.client_id===cid)&&o.date>=from&&o.date_exp).map(delayOf);
   return{n:ds.length,avg:ds.length?ds.reduce((a,b)=>a+b,0)/ds.length:null,j1:ds.length?ds.filter(x=>x<=1).length/ds.length:null}}
 const lateOrders=cid=>DB.commandes.filter(o=>['a_preparer','preparee'].includes(o.statut)&&(!cid||o.client_id===cid)&&diffDays(o.date,todayStr())>=2);
-function costs(){const r=DB.parametres.find(x=>x.id==='couts');let g=null;try{g=r&&r.valeur?JSON.parse(r.valeur):null}catch(e){}return Object.assign({mo:0.5},g||{})}
+function costs(){const r=DB.parametres.find(x=>x.id==='couts');let g=null;try{g=r&&r.valeur?JSON.parse(r.valeur):null}catch(e){}return Object.assign({mo:0.5,th:0},g||{})}
 const packOf=c=>c&&c.emballage?prod(c.emballage):null;
 function margeClient(cid,m){const c=client(cid);const os=DB.commandes.filter(o=>o.client_id===cid&&o.statut!=='annulee'&&o.date.startsWith(m));const fr=DB.frais.filter(x=>x.client_id===cid&&x.date.startsWith(m));
   const ca=round2(os.reduce((s,o)=>s+o.montant,0)+fr.reduce((s,x)=>s+x.montant,0));const pk=packOf(c),pc=Number(pk?.cout)||0,mo=Number(costs().mo)||0;
@@ -741,10 +743,11 @@ const ICON={
  stock:'<rect x="4" y="4" width="16" height="6" rx="1"/><rect x="4" y="14" width="16" height="6" rx="1"/><path d="M8 7h3M8 17h3"/>',
  forecast:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
  clients:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3 3 0 0 1 0 6M21 20c0-2.6-1.6-4.8-4-5.6"/>',
+ reports:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
  process:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7M8 11h7"/>',
  settings:'<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>'
 };
-const NAV=[['home','Accueil'],['orders','Commandes'],['picking','Préparation'],['payments','Paiements'],['returns','Retours'],['stock','Stock'],['forecast','Prévisions'],['clients','Clients'],['process','Process'],['settings','Réglages']];
+const NAV=[['home','Accueil'],['orders','Commandes'],['picking','Préparation'],['payments','Paiements'],['returns','Retours'],['stock','Stock'],['forecast','Prévisions'],['clients','Clients'],['reports','Rapports'],['process','Process'],['settings','Réglages']];
 function navCounts(){const live=DB.commandes.filter(o=>o.statut!=='annulee');return{stock:dlcAlerts().length,picking:lateOrders().length,orders:live.filter(o=>o.statut==='a_preparer').length,payments:dueItems().length,returns:DB.retours.filter(r=>r.decision==='attente').length,forecast:DB.produits.filter(p=>p.actif&&['rupture','now'].includes(forecast(p).lvl)).length}}
 const MOB_MAIN=['home','picking','orders','stock'],MOB_MAIN_PREP=['picking','returns','stock','process'];
 ICON.more='<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>';
@@ -930,6 +933,49 @@ function vPayments(){
 }
 function relanceText(cid){const c=client(cid);const is=dueItems(cid).sort((a,b)=>a.o.date.localeCompare(b.o.date));const tot=is.reduce((s,i)=>s+due(i.o),0);
   return `Bonjour${c?.contact?' '+c.contact:''},\nPetit rappel : ${is.length} élément(s) restent à régler pour un total de ${eur(tot)}.\n${is.map(i=>`• ${i.lib} du ${fd(i.o.date)} : ${eur(due(i.o))}`).join('\n')}${(()=>{const pt=provBal(cid,'transport');return pt<0?`\nProvision transport à recharger : ${eur(-pt)}`:''})()}\nMerci beaucoup !\nCentr Supply`}
+
+/* ============ VUE : Rapports de préparation ============ */
+const REP_PER={'1':'Aujourd’hui','7':'7 derniers jours','30':'30 derniers jours','m':'Ce mois','pm':'Mois dernier'};
+function repRange(per){const t=todayStr();if(per==='m')return[t.slice(0,8)+'01',t];if(per==='pm'){const d=new Date(t.slice(0,8)+'01T12:00:00');d.setMonth(d.getMonth()-1);const a=d.toISOString().slice(0,10);d.setMonth(d.getMonth()+1);d.setDate(0);return[a,d.toISOString().slice(0,10)]}return[addDays(t,-(Number(per)-1)),t]}
+const hm=min=>{min=Math.round(min||0);return min<60?min+' min':Math.floor(min/60)+' h '+String(min%60).padStart(2,'0')};
+const sRevL=x=>x.revL!=null?x.revL:(x.rev||0);
+function repData(per,u){const [a,b]=repRange(per);const ss=sessions().filter(x=>x.d>=a&&x.d<=b&&(!u||x.u===u));
+  const min=ss.reduce((s,x)=>s+(x.min||0),0),cmd=ss.reduce((s,x)=>s+(x.cmd||0),0),art=ss.reduce((s,x)=>s+(x.art||0),0),rev=round2(ss.reduce((s,x)=>s+sRevL(x),0)),revV=round2(ss.reduce((s,x)=>s+(x.rev||0)-sRevL(x),0)),hrs=min/60,th=costs().th||0,cost=round2(hrs*th);
+  const exp=DB.commandes.filter(o=>o.statut!=='annulee'&&o.date_exp&&o.date_exp>=a&&o.date_exp<=b);
+  return{a,b,ss,min,cmd,art,rev,revV,hrs,th,cost,cph:hrs?cmd/hrs:0,aph:hrs?art/hrs:0,eph:hrs?rev/hrs:0,mph:hrs&&th?(rev-cost)/hrs:null,exp,expRev:round2(exp.filter(o=>isLogi(client(o.client_id))).reduce((s,o)=>s+(Number(o.montant)||0),0)),expV:round2(exp.filter(o=>!isLogi(client(o.client_id))).reduce((s,o)=>s+(Number(o.montant)||0),0))}}
+function vReports(){const f=F.rep,R=repData(f.per,f.u),users=[...new Set(sessions().map(x=>x.u||''))];
+  const days=[];for(let d=R.a;d<=R.b;d=addDays(d,1)){const ss=R.ss.filter(x=>x.d===d),ex=R.exp.filter(o=>o.date_exp===d);days.push({d,cmd:ss.reduce((s,x)=>s+x.cmd,0),min:ss.reduce((s,x)=>s+x.min,0),rev:ss.reduce((s,x)=>s+(x.rev||0),0),ecmd:ex.length,erev:ex.reduce((s,o)=>s+(Number(o.montant)||0),0)})}
+  const mx=Math.max(1,...days.map(x=>Math.max(x.ecmd,x.cmd)));
+  const byU={};R.ss.forEach(x=>{const k=x.u||'—';const o=byU[k]||(byU[k]={n:0,min:0,cmd:0,art:0,rev:0,ec:0,tape:0});o.n++;o.min+=x.min;o.cmd+=x.cmd;o.art+=x.art;o.rev+=sRevL(x);o.ec+=x.ecart||0;o.tape+=x.tape||0});
+  const byC={};R.exp.forEach(o=>{const k=o.client_id;const z=byC[k]||(byC[k]={n:0,art:0,rev:0});z.n++;z.art+=qtyOf(o);z.rev+=Number(o.montant)||0});
+  const best=sessions().filter(x=>x.min>=5).reduce((m,x)=>Math.max(m,x.cmd/(x.min/60)),0);
+  const html=`
+  <div class="toolbar"><select data-f="rep.per">${Object.entries(REP_PER).map(([k,v])=>opt(k,v,f.per)).join('')}</select>
+    ${users.length>1||users[0]?`<select data-f="rep.u">${opt('','Tous les préparateurs',f.u)}${users.map(x=>opt(x,x||'(sans prénom)',f.u)).join('')}</select>`:''}
+    <span class="muted small">${fd(R.a)} → ${fd(R.b)}</span>
+    <div class="sp"><button class="btn ghost" data-act="repCopy">Copier le rapport</button><button class="btn ghost" data-act="repCsv">Exporter CSV</button><button class="btn" data-act="sessAdd">+ Saisir une session</button></div></div>
+  <div class="kpis">
+    ${kpi('Temps de préparation',hm(R.min),`${R.ss.length} session(s) chronométrée(s)`)}
+    ${kpi('Commandes préparées',num(R.cmd),`${num(R.art)} articles`)}
+    ${kpi('Revenus logistique',eur(R.rev),R.revV>0?`+ ${eur(R.revV)} de ventes produits (B2B)`:'préparations + upsells des sessions','ok')}
+    ${kpi('Commandes / heure',R.hrs?num(Math.round(R.cph)):'—',R.hrs?`${num(Math.round(R.aph))} articles/h · record ${num(Math.round(best))}`:'')}
+    ${kpi('Revenus / heure',R.hrs?eur(R.eph):'—',R.th?`coût ${eur(R.th)}/h`:'règle ton coût horaire dans Réglages','',R.th?'':`data-act="go" data-r="settings"`)}
+    ${kpi('Marge / heure',R.mph==null?'—':eur(R.mph),R.th&&R.hrs?`main d’œuvre ${eur(R.cost)} sur la période`:'',R.mph==null?'':R.mph<0?'bad':'ok')}
+  </div>
+  <div class="card"><div class="card-h"><h2>Activité par jour</h2><span class="muted small">barre pleine : toutes les commandes expédiées (avec ou sans scan) · ${num(R.exp.length)} cdes · ${eur(R.expRev)} logistique${R.expV?` + ${eur(R.expV)} ventes`:''}</span></div>
+    <div class="card-b"><div class="repbars">${days.map(x=>`<div class="rb" title="${fd(x.d)} : ${x.ecmd} expédiée(s) · ${eur(x.erev)}${x.min?` · session ${hm(x.min)}, ${x.cmd} cdes`:''}"><div class="rv">${x.ecmd||''}</div><div class="col"><i style="height:${x.ecmd/mx*100}%"></i>${x.cmd?`<b style="height:${x.cmd/mx*100}%"></b>`:''}</div><div class="rd">${days.length>14?fd(x.d).split(' ')[0]:fd(x.d)}</div>${x.min?`<div class="rm">${hm(x.min)}</div>`:''}</div>`).join('')}</div>
+    <div class="small muted" style="margin-top:8px"><span class="lg a"></span> expédiées <span class="lg b" style="margin-left:12px"></span> préparées en session chronométrée</div></div></div>
+  <div class="cols" style="grid-template-columns:1fr 1fr">
+    <div class="card"><div class="card-h"><h2>Par préparateur</h2></div>${Object.keys(byU).length?`<div class="tbl"><table><thead><tr><th>Préparateur</th><th class="r">Temps</th><th class="r">Cdes</th><th class="r">Cdes/h</th><th class="r">€/h</th><th class="r">Écarts</th></tr></thead><tbody>${Object.entries(byU).sort((a,b)=>b[1].cmd-a[1].cmd).map(([k,o])=>`<tr><td><b>${h(k)}</b><br><span class="small muted">${o.n} session(s)${o.tape?` · ${o.tape} code(s) tapé(s)`:''}</span></td><td class="r">${hm(o.min)}</td><td class="r">${o.cmd}</td><td class="r"><b>${num(Math.round(o.cmd/(o.min/60)))}</b></td><td class="r">${eur(o.rev/(o.min/60))}</td><td class="r ${o.ec?'neg':''}">${o.ec||'—'}</td></tr>`).join('')}</tbody></table></div>`:emptyState('Aucune session','Lance ⚡ Mode scan dans Préparation pour chronométrer.')}</div>
+    <div class="card"><div class="card-h"><h2>Par client</h2><span class="muted small">commandes expédiées</span></div>${Object.keys(byC).length?`<div class="tbl"><table><thead><tr><th>Client</th><th class="r">Cdes</th><th class="r">Articles</th><th class="r">Montant</th><th class="r">Part</th></tr></thead><tbody>${Object.entries(byC).sort((a,b)=>b[1].rev-a[1].rev).map(([k,o])=>`<tr><td>${h(cname(k))}</td><td class="r">${o.n}</td><td class="r">${o.art}</td><td class="r"><b>${eur(o.rev)}</b></td><td class="r small muted">${R.expRev+R.expV?Math.round(o.rev/(R.expRev+R.expV)*100):0} %</td></tr>`).join('')}</tbody></table></div>`:emptyState('Aucune expédition sur la période')}</div>
+  </div>
+  <div class="card"><div class="card-h"><h2>Sessions</h2><span class="muted small">chaque passage en ⚡ Mode scan (ou saisi à la main)</span></div>${R.ss.length?`<div class="tbl"><table><thead><tr><th>Date</th><th>Préparateur</th><th class="r">Durée</th><th class="r">dont cueillette</th><th class="r">Cdes</th><th class="r">Articles</th><th class="r">Revenus</th><th class="r">Cdes/h</th><th class="r">€/h</th><th></th></tr></thead><tbody>${R.ss.slice().reverse().map(x=>`<tr><td class="nowrap">${fd(x.d)}${x.h?` <span class="muted small">${x.h}</span>`:''}${x.manuel?' '+pill('manuel',''):''}</td><td>${h(x.u||'—')}</td><td class="r">${hm(x.min)}</td><td class="r small muted">${x.pick!=null?hm(x.pick):'—'}</td><td class="r">${x.cmd}</td><td class="r">${x.art||'—'}</td><td class="r">${x.rev!=null?eur(sRevL(x)):'—'}${x.rev!=null&&x.rev-sRevL(x)>0?`<br><span class="small muted">+ ${eur(x.rev-sRevL(x))} ventes</span>`:''}</td><td class="r"><b>${num(Math.round(x.cmd/(x.min/60)))}</b></td><td class="r">${x.rev!=null?eur(sRevL(x)/(x.min/60)):'—'}</td><td class="r">${x.id?`<button class="x" data-act="sessDel" data-id="${x.id}" title="Supprimer">×</button>`:''}</td></tr>`).join('')}</tbody></table></div>`:emptyState('Aucune session sur la période')}</div>`;
+  return{title:'Rapports de préparation',html}}
+function repText(){const f=F.rep,R=repData(f.per,f.u);return `Rapport préparation — ${REP_PER[f.per]}${f.u?' · '+f.u:''} (${fd(R.a)} → ${fd(R.b)})\n• Temps : ${hm(R.min)} (${R.ss.length} session(s))\n• Commandes préparées : ${R.cmd} (${R.art} articles)\n• Revenus logistique : ${eur(R.rev)}${R.revV>0?` (+ ${eur(R.revV)} de ventes produits)`:''}\n• Cadence : ${R.hrs?Math.round(R.cph):0} cdes/h · ${R.hrs?eur(R.eph):'—'}/h${R.mph!=null?`\n• Marge : ${eur(R.mph)}/h après main d’œuvre`:''}\n• Expédiées sur la période (total) : ${R.exp.length} cdes · ${eur(R.expRev)} logistique${R.expV?` + ${eur(R.expV)} ventes`:''}`}
+function sessForm(){const body=`<div class="grid2">${field('Date',inp('d',todayStr(),'type="date" required'))}${field('Préparateur',inp('u',LS.get('cs_user',''),'required'))}${field('Durée (minutes)',inp('min','','type="number" min="1" required inputmode="numeric"'))}${field('Commandes préparées',inp('cmd','','type="number" min="1" required inputmode="numeric"'))}${field('Articles',inp('art','','type="number" min="0" inputmode="numeric"'))}${field('Revenus logistique (€) <span class="muted">— vide = calcul auto</span>',inp('rev','','type="number" step="0.01" min="0" inputmode="decimal"'))}</div><p class="muted small" style="margin:0">Pour une préparation faite sans le mode scan. Calcul auto : nombre de commandes × revenu moyen d’une commande logistique expédiée ce jour-là (ou ${eur(DEF_PRICES.prep)} par défaut).</p>`;
+  modal('Saisir une session de préparation',body,{onSubmit(d){const cmd=parseInt(d.cmd)||0,min=parseFloat(d.min)||0;if(!cmd||!min)return;let rev=d.rev===''?null:round2(Number(String(d.rev).replace(',','.'))||0);
+    if(rev==null){const ex=DB.commandes.filter(o=>o.statut!=='annulee'&&o.date_exp===d.d&&isLogi(client(o.client_id)));const avg=ex.length?ex.reduce((s,o)=>s+(Number(o.montant)||0),0)/ex.length:prices(null).prep;rev=round2(avg*cmd)}
+    const ss=sessions();ss.push({id:uid('ss'),d:d.d,u:(d.u||'').trim(),cmd,art:parseInt(d.art)||0,rev,revL:rev,min,manuel:1});ss.sort((a,b)=>(a.d+(a.h||'')).localeCompare(b.d+(b.h||'')));saveParam('sessions',JSON.stringify(ss.slice(-300)));closeModal();toast('Session ajoutée')}})}
 
 /* ============ VUE : Retours ============ */
 function retText(dossier){const rs=DB.retours.filter(r=>(r.dossier||r.id)===dossier);if(!rs.length)return'';const r0=rs[0],c=client(r0.client_id),o=DB.commandes.find(x=>x.id===r0.commande_id);
@@ -1130,7 +1176,7 @@ function scanStart(){
   const agg={};os.forEach(o=>o.lignes.forEach(l=>{(agg[l.p]||(agg[l.p]={p:l.p,q:0})).q+=l.q}));
   const byBin={};Object.values(agg).forEach(a=>{const pr=prod(a.p);const b=pr&&pr.emplacement?binKey(pr.emplacement):'';const k=b||('~'+a.p);(byBin[k]||(byBin[k]={bin:b,items:[]})).items.push({...a,lots:pickLots(a.p,a.q)})});
   const picks=Object.values(byBin).sort((a,b)=>(a.bin||'~').localeCompare(b.bin||'~','fr',{numeric:true}));
-  Object.assign(SC,{confirm:null,chk:new Set(),help:false,typed:0,nobin:0,on:true,phase:'pick',orders:os.map(o=>o.id),picks,i:0,done:new Set(),packed:new Set(),skipped:new Set(),oi:0,t0:Date.now(),last:'',lastT:0,buf:'',bufT:0,msg:'',msgT:''});
+  Object.assign(SC,{tPick:0,nEcart:0,confirm:null,chk:new Set(),help:false,typed:0,nobin:0,on:true,phase:'pick',orders:os.map(o=>o.id),picks,i:0,done:new Set(),packed:new Set(),skipped:new Set(),oi:0,t0:Date.now(),last:'',lastT:0,buf:'',bufT:0,msg:'',msgT:''});
   try{const A=window.AudioContext||window.webkitAudioContext;SC.ac=SC.ac||new A();SC.ac.resume&&SC.ac.resume();const o=SC.ac.createOscillator(),g=SC.ac.createGain();g.gain.value=0;o.connect(g);g.connect(SC.ac.destination);o.start();o.stop(SC.ac.currentTime+.01)}catch(e){}
   $('#scanui').classList.add('open');document.body.style.overflow='hidden';scanDraw();camStart();
 }
@@ -1138,7 +1184,8 @@ function scanStop(silent){
   if(!SC.on)return;camStop();SC.on=false;$('#scanui').classList.remove('open');$('#scanui').innerHTML='';document.body.style.overflow='';
   const n=SC.packed.size,min=(Date.now()-SC.t0)/60000;
   if(n){const art=SC.orders.filter(id=>SC.packed.has(id)).map(findO).filter(Boolean).reduce((a,o)=>a+qtyOf(o),0);
-    const ss=sessions();ss.push({d:todayStr(),u:LS.get('cs_user',''),cmd:n,art,min:Math.max(1,Math.round(min*10)/10),tape:SC.typed||0,sansbac:SC.nobin||0});saveParam('sessions',JSON.stringify(ss.slice(-300)));
+    const packed=SC.orders.filter(id=>SC.packed.has(id)).map(findO).filter(Boolean),rev=round2(packed.reduce((a,o)=>a+(Number(o.montant)||0),0)),revL=round2(packed.filter(o=>isLogi(client(o.client_id))).reduce((a,o)=>a+(Number(o.montant)||0),0)),byc={};packed.forEach(o=>byc[o.client_id]=(byc[o.client_id]||0)+1);
+    const t0=new Date(SC.t0),ss=sessions();ss.push({id:uid('ss'),d:todayStr(),h:String(t0.getHours()).padStart(2,'0')+':'+String(t0.getMinutes()).padStart(2,'0'),u:LS.get('cs_user',''),cmd:n,art,rev,revL,min:Math.max(1,Math.round(min*10)/10),pick:SC.tPick?Math.round((SC.tPick-SC.t0)/6000)/10:null,tape:SC.typed||0,sansbac:SC.nobin||0,ecart:SC.nEcart||0,cl:byc});saveParam('sessions',JSON.stringify(ss.slice(-300)));
     if(!silent)toast(`${n} commande(s) en ${Math.max(1,Math.round(min))} min → ${Math.round(n/Math.max(min,1)*60)} cdes/h`)}
   render();
 }
@@ -1161,7 +1208,7 @@ function onScan(raw){
   if(qq>=2){if(SC.confirm===idx)return;SC.confirm=idx;feedback(true);scanMsg(`✓ Bon bac — compte ×${qq} puis confirme`,true);scanDraw();return}
   SC.done.add(idx);SC.confirm=null;feedback(true);scanMsg(`✓ ${code} prélevé`,true);advance();
 }
-function advance(){const n=SC.picks.length;for(let k=0;k<n;k++){const j=(SC.i+k)%n;if(!SC.done.has(j)){SC.i=j;scanDraw();return}}SC.phase='pack';SC.oi=0;camStop();scanDraw();}
+function advance(){const n=SC.picks.length;for(let k=0;k<n;k++){const j=(SC.i+k)%n;if(!SC.done.has(j)){SC.i=j;scanDraw();return}}SC.phase='pack';SC.tPick=Date.now();SC.oi=0;camStop();scanDraw();}
 function camStop(){if(SC.raf)cancelAnimationFrame(SC.raf);SC.raf=0;if(SC.stream){SC.stream.getTracks().forEach(t=>t.stop());SC.stream=null}}
 async function camStart(){
   if(SC.phase!=='pick'||SC.stream)return;const v=$('#scVideo'),off=$('#scOff');if(!v)return;
@@ -1185,7 +1232,7 @@ async function camStart(){
 function scanDraw(){
   const ui=$('#scanui');if(!SC.on)return;const t=Date.now(),min=Math.max(.1,(t-SC.t0)/60000);
   const nPick=SC.picks.length,nDone=SC.done.size,nOrd=SC.orders.length,nPack=SC.packed.size;
-  const top=`<div class="sc-top"><b>⚡ ${SC.phase==='pick'?'Cueillette':'Emballage'}</b><span class="sp"><button class="btn sm" data-sc="close">Terminer</button></span><span class="sc-stats"><span><b id="scClock">${Math.floor(min)}:${String(Math.floor((t-SC.t0)/1000)%60).padStart(2,'0')}</b></span><span><b>${SC.phase==='pick'?`${nDone}/${nPick}`:`${nPack}/${nOrd}`}</b> ${SC.phase==='pick'?'bacs':'colis'}</span>${nPack?`<span><b>${Math.round(nPack/min*60)}</b> cdes/h</span>`:''}</span></div>`;
+  const top=`<div class="sc-top"><b>⚡ ${SC.phase==='pick'?'Cueillette':'Emballage'}</b><span class="sp"><button class="btn sm" data-sc="close">Terminer</button></span><span class="sc-stats"><span><b id="scClock">${Math.floor(min)}:${String(Math.floor((t-SC.t0)/1000)%60).padStart(2,'0')}</b></span><span><b>${SC.phase==='pick'?`${nDone}/${nPick}`:`${nPack}/${nOrd}`}</b> ${SC.phase==='pick'?'bacs':'colis'}</span>${nPack?`<span><b>${Math.round(nPack/min*60)}</b> cdes/h</span><span><b>${eur(SC.orders.filter(id=>SC.packed.has(id)).map(findO).filter(Boolean).reduce((a,o)=>a+(Number(o.montant)||0),0))}</b> générés</span>`:''}</span></div>`;
   let body='';
   if(SC.phase==='pick'){
     const cur=SC.picks[SC.i],rest=SC.picks.map((x,j)=>({x,j})).filter(o=>!SC.done.has(o.j)&&o.j!==SC.i);
@@ -1227,7 +1274,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-sc]');if(!
   else if(a==='ecart'){const i=SC.confirm,cur=SC.picks[i];if(i==null)return;const exp=cur.items.reduce((x,y)=>x+y.q,0);
     const pris=prompt(`Combien en as-tu pris réellement ? (demandé : ${exp})`,String(exp));if(pris===null)return;const reste=prompt('Combien en reste-t-il maintenant dans le bac ?','0');if(reste===null)return;
     const E=ecarts();E.push({id:uid('e'),d:todayStr(),u:LS.get('cs_user',''),bin:cur.bin,p:cur.items.map(x=>x.p),demande:exp,pris:Number(pris)||0,theo:cur.items.reduce((x,y)=>x+stockOf(y.p),0),reste:Number(reste)||0});saveParam('ecarts',JSON.stringify(E.slice(-200)));
-    SC.done.add(i);SC.confirm=null;feedback(false);scanMsg(`⚠ Écart signalé sur ${cur.bin} — à recompter`,false);advance()}
+    SC.nEcart=(SC.nEcart||0)+1;SC.done.add(i);SC.confirm=null;feedback(false);scanMsg(`⚠ Écart signalé sur ${cur.bin} — à recompter`,false);advance()}
   else if(a==='skip'){SC.confirm=null;const n=SC.picks.length;for(let k=1;k<=n;k++){const j=(SC.i+k)%n;if(!SC.done.has(j)){SC.i=j;break}}scanMsg('',true);scanDraw()}
   else if(a==='step'){SC.chk=SC.chk||new Set();const k=b.dataset.k;SC.chk.has(k)?SC.chk.delete(k):SC.chk.add(k);const y=$('#scPane .sc-body')?.scrollTop;scanDraw();const bd=$('#scPane .sc-body');if(bd&&y!=null)bd.scrollTop=y}
   else if(a==='packed'){const o=findO(b.dataset.id);{const c=client(o.client_id);if(c){const st=packSteps(c,o).map((x,i)=>({x,i})).filter(z=>!z.x.off),miss=st.filter(z=>!(SC.chk&&SC.chk.has(`${o.id}:${z.i}`)));if(miss.length&&st.length&&!confirm(`Étapes pas cochées :\n• ${miss.map(z=>z.x.txt).join('\n• ')}\n\nFermer le colis quand même ?`))return}}SC.packed.add(o.id);feedback(true);save('commandes',setStatus(o,'expediee'));scanDraw()}
@@ -1353,7 +1400,7 @@ function vSettings(){
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="loadDemo">Recharger la démo</button><button class="btn danger" data-act="wipeLocal">Repartir de zéro</button></div></div></div>`:''}
   <div class="card"><div class="card-h"><h2>Coûts (pour calculer ta marge)</h2></div><div class="card-b">
     <p>Marge d’un client = ce que tu lui factures − (emballage + main d’œuvre) × nombre de commandes − coût d’achat des produits de ton stock propre. Le coût de chaque emballage se règle dans Stock → Consommables (emballages).</p>
-    <form id="costf" class="grid2">${field('Main d’œuvre par commande (€)',inp('mo',costs().mo,'type="number" step="0.01" min="0" inputmode="decimal"'))}<div class="fld" style="justify-content:flex-end"><button class="btn primary">Enregistrer</button></div></form></div></div>
+    <form id="costf" class="grid2">${field('Main d’œuvre par commande (€)',inp('mo',costs().mo,'type="number" step="0.01" min="0" inputmode="decimal"'))}${field('Coût horaire préparateur (€/h, chargé) <span class="muted">— pour les rapports</span>',inp('th',costs().th||'','type="number" step="0.01" min="0" inputmode="decimal" placeholder="ex. 14"'))}<div class="fld" style="justify-content:flex-end"><button class="btn primary">Enregistrer</button></div></form></div></div>
   <div class="card"><div class="card-h"><h2>DLC (FEFO)</h2></div><div class="card-b">
     <p>Pour les produits avec « Suivi DLC par lot », chaque réception enregistre un n° de lot et une DLC. Le stock sort toujours le lot qui périme le plus tôt, et la Préparation indique quel lot prélever. Les lots périmés ne sont jamais proposés à l’envoi.</p>
     <form id="dlcf" class="grid2">${field('Alerter quand la DLC arrive dans (jours)',inp('alerte',dlcCfg().alerte,'type="number" min="1" inputmode="numeric"'))}<div class="fld" style="justify-content:flex-end"><button class="btn">Enregistrer</button></div></form></div></div>
@@ -1380,7 +1427,7 @@ function vSettings(){
       else{DB=remote;Q=[];persist()}
       LS.del('cs_demo');setSync('ok');toast('Connecté à Google Sheets ✓');render()};
     $('#dlcf').onsubmit=e=>{e.preventDefault();const a=parseInt(new FormData(e.target).get('alerte'))||30;saveParam('dlc',JSON.stringify({alerte:a}));toast('Alerte DLC enregistrée')};
-    $('#costf').onsubmit=e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));saveParam('couts',JSON.stringify({mo:round2(d.mo)}));toast('Coûts enregistrés')};
+    $('#costf').onsubmit=e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));saveParam('couts',JSON.stringify({mo:round2(d.mo),th:round2(d.th||0)}));toast('Coûts enregistrés')};
     $('#userf').onsubmit=e=>{e.preventDefault();const u=new FormData(e.target).get('user').trim();if(u){LS.set('cs_user',u);toast('Prénom enregistré')}};
     $('#pinf').onsubmit=async e=>{e.preventDefault();const pin=String(new FormData(e.target).get('pin')||'').trim();const has=DB.parametres.some(x=>x.id==='pin'&&x.valeur);
       if(pin){if(pin.length<4){toast('Code trop court (4 caractères min.)');return}saveParam('pin',await sha(pin))}else if(!has){toast('Définis d’abord un code');return}
@@ -1389,7 +1436,7 @@ function vSettings(){
     const fi=$('#importf');if(fi)fi.onchange=async()=>{const file=fi.files[0];if(!file)return;try{const d=normDB(JSON.parse(await file.text()));if(!confirm(`Importer ${d.clients.length} clients, ${d.produits.length} produits, ${d.commandes.length} commandes ? Les lignes existantes avec le même identifiant seront remplacées.`))return;Object.keys(SCHEMA).forEach(s=>d[s].forEach(r=>{const a=DB[s];const i=a.findIndex(x=>x.id===r.id);if(i>=0)a[i]=r;else a.push(r);if(CFG.url)Q.push({action:'upsert',sheet:s,row:serRow(s,r)})}));LS.del('cs_demo');persist();render();flush();toast('Import terminé')}catch(e){toast('Fichier invalide')}};
   }};
 }
-const VIEWS={portal:vPortal,picking:vPicking,process:vProcess,labels:vLabels,home:vHome,orders:vOrders,payments:vPayments,returns:vReturns,stock:vStock,forecast:vForecast,clients:vClients,client:vClient,settings:vSettings};
+const VIEWS={reports:vReports,portal:vPortal,picking:vPicking,process:vProcess,labels:vLabels,home:vHome,orders:vOrders,payments:vPayments,returns:vReturns,stock:vStock,forecast:vForecast,clients:vClients,client:vClient,settings:vSettings};
 
 /* ============ FORMULAIRES ============ */
 function logBlock(ref){const es=DB.journal.filter(e=>e.ref===ref).sort((a,b)=>b.date.localeCompare(a.date));if(!es.length)return'';
@@ -1733,7 +1780,8 @@ const ACT={
   go:d=>go(d.r),close:()=>closeModal(),
   newOrder:()=>orderForm(),newOrderFor:d=>orderForm(null,d.id),editOrder:d=>{closeModal();orderForm(findO(d.id))},
   newReturn:()=>{closeModal();returnNewForm()},newReturnFor:d=>{closeModal();returnNewForm(d.id)},editReturn:d=>{closeModal();returnForm(DB.retours.find(r=>r.id===d.id))},
-  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},provAdd:d=>provForm(d.id,'add'),provUse:d=>provForm(d.id,'use'),provPay:d=>provPay(d.id),provDel:d=>{const x=DB.provisions.find(y=>y.id===d.id);if(x&&confirm(`Supprimer cette ligne (${x.sens==='versement'?'+':'−'}${eur(x.montant)}) ?`)){removeRow('provisions',d.id)}},ecartDel:d=>{saveParam('ecarts',JSON.stringify(ecarts().filter(e=>e.id!==d.id)));render()},ecartsClear:()=>{if(confirm('Effacer tous les écarts ?')){saveParam('ecarts','[]');render()}},
+  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},repCopy:()=>copy(repText()),sessAdd:()=>sessForm(),sessDel:d=>{if(confirm('Supprimer cette session ?')){saveParam('sessions',JSON.stringify(sessions().filter(x=>x.id!==d.id)));render()}},
+  repCsv:()=>{const R=repData(F.rep.per,F.rep.u);download(`rapport-preparation-${R.a}_${R.b}.csv`,csv([['Date','Heure','Préparateur','Durée (min)','Cueillette (min)','Commandes','Articles','Revenus','Cdes/h','€/h','Écarts','Codes tapés','Saisie']].concat(R.ss.map(x=>[x.d,x.h||'',x.u||'',x.min,x.pick??'',x.cmd,x.art||'',x.rev??'',Math.round(x.cmd/(x.min/60)),x.rev!=null?round2(x.rev/(x.min/60)):'',x.ecart||0,x.tape||0,x.manuel?'manuelle':'scan']))))},provAdd:d=>provForm(d.id,'add'),provUse:d=>provForm(d.id,'use'),provPay:d=>provPay(d.id),provDel:d=>{const x=DB.provisions.find(y=>y.id===d.id);if(x&&confirm(`Supprimer cette ligne (${x.sens==='versement'?'+':'−'}${eur(x.montant)}) ?`)){removeRow('provisions',d.id)}},ecartDel:d=>{saveParam('ecarts',JSON.stringify(ecarts().filter(e=>e.id!==d.id)));render()},ecartsClear:()=>{if(confirm('Effacer tous les écarts ?')){saveParam('ecarts','[]');render()}},
   newProduct:()=>productForm(),newProductFor:d=>{closeModal();productForm(null,d.id)},editProduct:d=>{closeModal();productForm(prod(d.id))},prodHist:d=>prodHistory(d.id),
   importOrders:d=>{closeModal();importForm(d.id)},newClient:()=>clientForm(),editClient:d=>clientForm(client(d.id)),openClient:d=>go('client',d.id),
   ordersOfClient:d=>{F.orders={q:'',client:d.id,statut:'',pay:'',month:''};go('orders')},
