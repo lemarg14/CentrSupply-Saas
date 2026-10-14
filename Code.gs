@@ -13,11 +13,11 @@
  */
 
 const SCHEMA = {
-  clients:    ['id','nom','type','contact','telephone','email','prix_prep','prix_upsell','prix_retour','emballage','portail','notes','actif','created','updated'],
-  produits:   ['id','client_id','sku','nom','emplacement','prix','cout','seuil','delai','couverture','actif','created','updated'],
+  clients:    ['id','nom','type','contact','telephone','email','prix_prep','prix_upsell','prix_retour','emballage','consignes','portail','notes','actif','created','updated'],
+  produits:   ['id','client_id','sku','nom','emplacement','prix','cout','seuil','delai','couverture','fefo','actif','created','updated'],
   commandes:  ['id','numero','date','client_id','destinataire','lignes','ups','statut','date_exp','transporteur','suivi','montant','paiement','montant_paye','date_paiement','notes','created','updated'],
   retours:    ['id','dossier','date','client_id','commande_id','produit_id','qte','motif','etat','decision','notes','created','updated'],
-  mouvements: ['id','date','produit_id','type','qte','note','created','updated'],
+  mouvements: ['id','date','produit_id','type','qte','lot','dlc','note','created','updated'],
   frais:      ['id','date','client_id','libelle','qte','pu','montant','paiement','montant_paye','date_paiement','auto','notes','created','updated'],
   parametres: ['id','valeur','created','updated'],
   journal:    ['id','date','user','sheet','ref','action','created','updated']
@@ -25,7 +25,7 @@ const SCHEMA = {
 // Champs date au format AAAA-MM-JJ
 const JOURNAL_MAX = 1500; // nb max de lignes d'historique renvoyées à l'app
 // Colonnes laissées telles quelles (dates -> vraies dates dans la Sheet)
-const RAW_FIELDS = ['date', 'date_paiement', 'date_exp'];
+const RAW_FIELDS = ['date', 'date_paiement', 'date_exp', 'dlc'];
 
 /** À lancer une fois (et à relancer sans risque si tu ajoutes des colonnes). */
 function setup() {
@@ -133,7 +133,7 @@ function portal(tok) {
   const produits = own.concat(all.produits.filter(function (p) { return !ids[String(p.id)] && used[String(p.id)]; })
     .map(function (p) { return { id: p.id, client_id: p.client_id, nom: p.nom, sku: p.sku, actif: p.actif }; }));
   return {
-    clients: [{ id: c.id, nom: c.nom, type: c.type, prix_prep: c.prix_prep, prix_upsell: c.prix_upsell, prix_retour: c.prix_retour, actif: true }],
+    clients: [{ id: c.id, nom: c.nom, type: c.type, prix_prep: c.prix_prep, prix_upsell: c.prix_upsell, prix_retour: c.prix_retour, emballage: c.emballage, consignes: c.consignes, actif: true }],
     produits: produits,
     commandes: commandes,
     retours: all.retours.filter(mine),
