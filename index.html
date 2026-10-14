@@ -73,7 +73,7 @@ main{min-width:0;padding:0 28px 60px}
 .btn:disabled{opacity:.5;cursor:default}
 .link{border:0;background:none;padding:0;color:var(--accent);cursor:pointer;font-weight:550;text-align:left}
 .banner{margin:0 0 16px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--info-soft);color:var(--info);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.banner.err{background:var(--bad-soft);color:var(--bad)}
+.banner.err{background:var(--bad-soft);color:var(--bad)}.banner.warn{background:var(--warn-soft);color:var(--warn)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
 .kpi{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);text-align:left}
 .kpi::after{content:"";position:absolute;inset:0 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,rgba(185,242,62,.35),transparent);opacity:.6}
@@ -551,9 +551,26 @@ function defPrices(){const r=DB.parametres.find(x=>x.id==='prix');let g=null;try
 function prices(c){const d=defPrices(),v=k=>c&&c['prix_'+k]!==''&&c['prix_'+k]!=null?Number(c['prix_'+k]):d[k];return{prep:v('prep'),upsell:v('upsell'),retour:v('retour')}}
 /* Montant d'une commande : préparation (clients logistique) + upsells + produits vendus (stock propre) */
 function orderFee(c,lignes,ups){const pr=prices(c);let m=0;if(isLogi(c)){if(lignes.length||ups)m+=pr.prep;m+=(Number(ups)||0)*pr.upsell}
-  lignes.forEach(l=>m+=l.q*(Number(prod(l.p)?.prix)||0));return round2(m)}
+  lignes.forEach(l=>{const p=prod(l.p);if(p&&(!c||p.client_id!==c.id))m+=l.q*(Number(p.prix)||0)});return round2(m)}
+const expDate=o=>o.date_exp||(['expediee','livree'].includes(o.statut)?o.date:'');
+function recalcPlan(cid,inclPaid){const ign=LS.get('cs_recalcIgnore',{});return DB.commandes.filter(o=>o.statut!=='annulee'&&(!cid||o.client_id===cid)&&(inclPaid||o.paiement!=='paye')&&(o.lignes.length||o.ups)&&client(o.client_id)).map(o=>({o,n:orderFee(client(o.client_id),o.lignes,o.ups)})).filter(x=>Math.abs(x.n-(Number(x.o.montant)||0))>0.004&&ign[x.o.id]!==x.o.montant)}
+function applyRecalc(plan){if(!plan.length)return;saveMany(plan.map(x=>{const o=x.o,n=x.n;let r={...o,montant:n};if(o.paiement==='paye'&&n>o.montant)r={...r,paiement:'partiel'};else if(o.paiement==='paye')r={...r,montant_paye:n};else if(o.paiement==='partiel'&&o.montant_paye>=n)r={...r,paiement:'paye',montant_paye:n};return['commandes',r]}),`Montants recalculés (${plan.length} commandes)`);toast(`${plan.length} montant(s) recalculé(s) ✓`)}
+function dataCheck(){const L=DB.commandes.filter(o=>o.statut!=='annulee');
+  return{unpaid:recalcPlan('',false),paid:recalcPlan('',true).filter(x=>x.o.paiement==='paye'),noExp:L.filter(o=>['expediee','livree'].includes(o.statut)&&!o.date_exp),noProd:L.filter(o=>o.lignes.some(l=>!prod(l.p))),noClient:L.filter(o=>!client(o.client_id)),badDate:L.filter(o=>!/^\d{4}-\d{2}-\d{2}$/.test(o.date||''))}}
+function checkForm(){const D=dataCheck(),sum=a=>eur(a.reduce((s,x)=>s+(Number(x.o.montant)||0),0)),sumN=a=>eur(a.reduce((s,x)=>s+x.n,0));
+  const byC={};D.unpaid.forEach(x=>{const k=x.o.client_id;(byC[k]||(byC[k]=[])).push(x)});
+  const row=(ok,t,sub,btn)=>`<div class="ln" style="align-items:center"><span style="font-size:18px">${ok?'✅':'⚠️'}</span><span class="nm"><b>${t}</b>${sub?`<small>${sub}</small>`:''}</span>${btn||''}</div>`;
+  const body=`<div class="lines">
+    ${row(!D.unpaid.length,D.unpaid.length?`${D.unpaid.length} commande(s) non payée(s) avec un montant qui ne suit pas les prix`:'Montants des commandes non payées : OK',D.unpaid.length?`${sum(D.unpaid)} → ${sumN(D.unpaid)} · ${Object.entries(byC).map(([k,a])=>`${h(cname(k))} (${a.length})`).join(', ')}`:'',D.unpaid.length?`<button type="button" class="btn sm primary" data-act="recalcGo" data-w="unpaid">Recalculer</button>`:'')}
+    ${row(!D.paid.length,D.paid.length?`${D.paid.length} commande(s) déjà payée(s) avec un montant différent des prix`:'Commandes payées : OK',D.paid.length?`${sum(D.paid)} → ${sumN(D.paid)} · à ne recalculer que si c’est une erreur (elles repasseront en « partiel » s’il manque de l’argent)`:'',D.paid.length?`<button type="button" class="btn sm" data-act="recalcGo" data-w="paid">Recalculer aussi</button>`:'')}
+    ${row(!D.noExp.length,D.noExp.length?`${D.noExp.length} commande(s) expédiée(s) sans date d’expédition`:'Dates d’expédition : OK',D.noExp.length?'Elles ne comptent pas dans les délais et les rapports. Correction : date d’expédition = date de commande.':'',D.noExp.length?`<button type="button" class="btn sm primary" data-act="fixExp">Corriger</button>`:'')}
+    ${row(!D.noProd.length,D.noProd.length?`${D.noProd.length} commande(s) avec un produit supprimé ou inconnu`:'Produits des commandes : OK',D.noProd.length?h(D.noProd.slice(0,8).map(o=>o.numero).join(', '))+' — le stock de ces lignes n’est pas compté':'')}
+    ${row(!D.noClient.length,D.noClient.length?`${D.noClient.length} commande(s) sans client valide`:'Clients des commandes : OK',D.noClient.length?h(D.noClient.slice(0,8).map(o=>o.numero).join(', '))+' — exclues des totaux par client':'')}
+    ${row(!D.badDate.length,D.badDate.length?`${D.badDate.length} commande(s) avec une date illisible`:'Dates des commandes : OK',D.badDate.length?h(D.badDate.slice(0,8).map(o=>o.numero+' ('+(o.date||'vide')+')').join(', '))+' — vérifie la colonne date dans la Sheet':'')}
+  </div><p class="muted small" style="margin-bottom:0">Les montants se calculent à la création de la commande. Si tu changes les prix ou le type d’un client après coup, les anciennes commandes gardent l’ancien montant : c’est ici qu’on les remet à jour. Un montant modifié volontairement à la main sera aussi signalé.</p>`;
+  modal('Vérifier les calculs',body,{foot:`${D.unpaid.length?'<button type="button" class="btn ghost left" data-act="recalcIgnore">Ignorer ces écarts</button>':''}<button type="button" class="btn" data-act="close">Fermer</button>`})}
 function feeDetail(c,lignes,ups){const pr=prices(c),p=[];if(isLogi(c)){if(lignes.length||ups)p.push(`préparation ${eur(pr.prep)}`);if(ups)p.push(`${ups} upsell × ${eur(pr.upsell)}`)}
-  const v=lignes.reduce((s,l)=>s+l.q*(Number(prod(l.p)?.prix)||0),0);if(v)p.push(`produits ${eur(v)}`);return p.join(' + ')||'—'}
+  const v=lignes.reduce((s,l)=>{const q=prod(l.p);return s+(q&&(!c||q.client_id!==c.id)?l.q*(Number(q.prix)||0):0)},0);if(v)p.push(`produits ${eur(v)}`);return p.join(' + ')||'—'}
 function dueItems(cid){const os=DB.commandes.filter(o=>o.statut!=='annulee'&&(!cid||o.client_id===cid)&&due(o)>0).map(o=>({k:'commandes',o,lib:o.numero,det:lignesTxt(o,2)}));
   const fs=DB.frais.filter(x=>(!cid||x.client_id===cid)&&due(x)>0).map(x=>({k:'frais',o:x,lib:x.libelle,det:x.notes||''}));return os.concat(fs)}
 const PROV_T={traitement:['Traitement','📦'],transport:['Transport','🚚']};
@@ -794,6 +811,7 @@ function vHome(){
   const html=`
   <div class="kpis">
     ${kpi('Commandes ce mois',nM,delta==null?'—':`${delta>=0?'+':''}${delta}% vs même période en ${monthLabel(pm).split(' ')[0].toLowerCase()}`,'',`data-act="goOrdersMonth"`)}
+    ${(()=>{const os=live.filter(o=>o.date.startsWith(m)),fr=DB.frais.filter(x=>x.date.startsWith(m)),lg=os.filter(o=>isLogi(client(o.client_id))).reduce((s,o)=>s+(Number(o.montant)||0),0),vt=os.filter(o=>!isLogi(client(o.client_id))).reduce((s,o)=>s+(Number(o.montant)||0),0),fx=fr.reduce((s,x)=>s+(Number(x.montant)||0),0);return kpi('Revenus ce mois',eur(lg+vt+fx),`logistique ${eur(lg)}${fx?` · retours/frais ${eur(fx)}`:''}${vt?` · ventes ${eur(vt)}`:''}`,'ok',`data-act="go" data-r="reports"`)})()}
     ${kpi('Commandes traitées (total)',num(live.length),`${num(live.reduce((s,o)=>s+qtyOf(o),0))} articles expédiés`)}
     ${kpi('À préparer',toPrep.length,toPrep.length?`la plus ancienne : ${fd(toPrep[0].date)}`:'rien en attente',toPrep.length?'warn':'ok',`data-act="goOrdersPrep"`)}
     ${kpi('Reste à encaisser',eur(unpaid),`${nUnpaid} ligne(s) non réglée(s)`,unpaid>0?'bad':'ok',`data-act="go" data-r="payments"`)}
@@ -801,6 +819,7 @@ function vHome(){
     ${kpi('Alertes stock',alerts.filter(a=>a.f.lvl!=='soon').length,`${alerts.filter(a=>a.f.lvl==='soon').length} à surveiller bientôt`,alerts.some(a=>a.f.lvl!=='soon')?'bad':'ok',`data-act="go" data-r="forecast"`)}
     ${kpi('Délai d’expédition (30 j)',fmtDelay(ds.avg),ds.n?`${num(ds.j1*100)} % expédiées à J+1 max`:'pas encore de données','',`data-act="go" data-r="picking"`)}
   </div>
+  ${(()=>{const n=recalcPlan('',false).length,e=DB.commandes.filter(o=>['expediee','livree'].includes(o.statut)&&!o.date_exp).length;return n||e?`<div class="banner warn noprint">⚠ <b>${n?`${n} commande(s) non payée(s) n’ont pas le bon montant`:''}${n&&e?' · ':''}${e?`${e} expédiée(s) sans date d’expédition`:''}</b> <button class="btn sm" data-act="checkData">Vérifier et corriger</button></div>`:''})()}
   ${late.length?`<div class="banner err noprint">⚠ <b>${late.length} commande(s) attendent depuis plus de 48 h</b> <button class="btn sm" data-act="go" data-r="picking">Ouvrir la préparation</button></div>`:''}
   <div class="cols">
     <div class="stack">
@@ -941,10 +960,10 @@ const hm=min=>{min=Math.round(min||0);return min<60?min+' min':Math.floor(min/60
 const sRevL=x=>x.revL!=null?x.revL:(x.rev||0);
 function repData(per,u){const [a,b]=repRange(per);const ss=sessions().filter(x=>x.d>=a&&x.d<=b&&(!u||x.u===u));
   const min=ss.reduce((s,x)=>s+(x.min||0),0),cmd=ss.reduce((s,x)=>s+(x.cmd||0),0),art=ss.reduce((s,x)=>s+(x.art||0),0),rev=round2(ss.reduce((s,x)=>s+sRevL(x),0)),revV=round2(ss.reduce((s,x)=>s+(x.rev||0)-sRevL(x),0)),hrs=min/60,th=costs().th||0,cost=round2(hrs*th);
-  const exp=DB.commandes.filter(o=>o.statut!=='annulee'&&o.date_exp&&o.date_exp>=a&&o.date_exp<=b);
+  const exp=DB.commandes.filter(o=>{if(o.statut==='annulee')return false;const d=expDate(o);return d&&d>=a&&d<=b});
   return{a,b,ss,min,cmd,art,rev,revV,hrs,th,cost,cph:hrs?cmd/hrs:0,aph:hrs?art/hrs:0,eph:hrs?rev/hrs:0,mph:hrs&&th?(rev-cost)/hrs:null,exp,expRev:round2(exp.filter(o=>isLogi(client(o.client_id))).reduce((s,o)=>s+(Number(o.montant)||0),0)),expV:round2(exp.filter(o=>!isLogi(client(o.client_id))).reduce((s,o)=>s+(Number(o.montant)||0),0))}}
 function vReports(){const f=F.rep,R=repData(f.per,f.u),users=[...new Set(sessions().map(x=>x.u||''))];
-  const days=[];for(let d=R.a;d<=R.b;d=addDays(d,1)){const ss=R.ss.filter(x=>x.d===d),ex=R.exp.filter(o=>o.date_exp===d);days.push({d,cmd:ss.reduce((s,x)=>s+x.cmd,0),min:ss.reduce((s,x)=>s+x.min,0),rev:ss.reduce((s,x)=>s+(x.rev||0),0),ecmd:ex.length,erev:ex.reduce((s,o)=>s+(Number(o.montant)||0),0)})}
+  const days=[];for(let d=R.a;d<=R.b;d=addDays(d,1)){const ss=R.ss.filter(x=>x.d===d),ex=R.exp.filter(o=>expDate(o)===d);days.push({d,cmd:ss.reduce((s,x)=>s+x.cmd,0),min:ss.reduce((s,x)=>s+x.min,0),rev:ss.reduce((s,x)=>s+(x.rev||0),0),ecmd:ex.length,erev:ex.reduce((s,o)=>s+(Number(o.montant)||0),0)})}
   const mx=Math.max(1,...days.map(x=>Math.max(x.ecmd,x.cmd)));
   const byU={};R.ss.forEach(x=>{const k=x.u||'—';const o=byU[k]||(byU[k]={n:0,min:0,cmd:0,art:0,rev:0,ec:0,tape:0});o.n++;o.min+=x.min;o.cmd+=x.cmd;o.art+=x.art;o.rev+=sRevL(x);o.ec+=x.ecart||0;o.tape+=x.tape||0});
   const byC={};R.exp.forEach(o=>{const k=o.client_id;const z=byC[k]||(byC[k]={n:0,art:0,rev:0});z.n++;z.art+=qtyOf(o);z.rev+=Number(o.montant)||0});
@@ -954,6 +973,11 @@ function vReports(){const f=F.rep,R=repData(f.per,f.u),users=[...new Set(session
     ${users.length>1||users[0]?`<select data-f="rep.u">${opt('','Tous les préparateurs',f.u)}${users.map(x=>opt(x,x||'(sans prénom)',f.u)).join('')}</select>`:''}
     <span class="muted small">${fd(R.a)} → ${fd(R.b)}</span>
     <div class="sp"><button class="btn ghost" data-act="repCopy">Copier le rapport</button><button class="btn ghost" data-act="repCsv">Exporter CSV</button><button class="btn" data-act="sessAdd">+ Saisir une session</button></div></div>
+  <div class="kpis">
+    ${kpi('Commandes expédiées',num(R.exp.length),`${num(R.exp.reduce((s,o)=>s+qtyOf(o),0))} articles · avec ou sans scan`)}
+    ${kpi('Revenus de la période',eur(R.expRev+R.expV),`logistique ${eur(R.expRev)}${R.expV?` · ventes ${eur(R.expV)}`:''}`,'ok')}
+  </div>
+  ${R.ss.length?'':`<div class="banner noprint">⏱ Le <b>temps</b> et la <b>cadence</b> se mesurent avec ⚡ Mode scan (Préparation). Tu prépares sans ? Clique sur « + Saisir une session » avec la durée.</div>`}
   <div class="kpis">
     ${kpi('Temps de préparation',hm(R.min),`${R.ss.length} session(s) chronométrée(s)`)}
     ${kpi('Commandes préparées',num(R.cmd),`${num(R.art)} articles`)}
@@ -1400,7 +1424,7 @@ function vSettings(){
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="loadDemo">Recharger la démo</button><button class="btn danger" data-act="wipeLocal">Repartir de zéro</button></div></div></div>`:''}
   <div class="card"><div class="card-h"><h2>Coûts (pour calculer ta marge)</h2></div><div class="card-b">
     <p>Marge d’un client = ce que tu lui factures − (emballage + main d’œuvre) × nombre de commandes − coût d’achat des produits de ton stock propre. Le coût de chaque emballage se règle dans Stock → Consommables (emballages).</p>
-    <form id="costf" class="grid2">${field('Main d’œuvre par commande (€)',inp('mo',costs().mo,'type="number" step="0.01" min="0" inputmode="decimal"'))}${field('Coût horaire préparateur (€/h, chargé) <span class="muted">— pour les rapports</span>',inp('th',costs().th||'','type="number" step="0.01" min="0" inputmode="decimal" placeholder="ex. 14"'))}<div class="fld" style="justify-content:flex-end"><button class="btn primary">Enregistrer</button></div></form></div></div>
+    <div style="margin-bottom:10px"><button type="button" class="btn" data-act="checkData">🔎 Vérifier et recalculer les montants</button></div><form id="costf" class="grid2">${field('Main d’œuvre par commande (€)',inp('mo',costs().mo,'type="number" step="0.01" min="0" inputmode="decimal"'))}${field('Coût horaire préparateur (€/h, chargé) <span class="muted">— pour les rapports</span>',inp('th',costs().th||'','type="number" step="0.01" min="0" inputmode="decimal" placeholder="ex. 14"'))}<div class="fld" style="justify-content:flex-end"><button class="btn primary">Enregistrer</button></div></form></div></div>
   <div class="card"><div class="card-h"><h2>DLC (FEFO)</h2></div><div class="card-b">
     <p>Pour les produits avec « Suivi DLC par lot », chaque réception enregistre un n° de lot et une DLC. Le stock sort toujours le lot qui périme le plus tôt, et la Préparation indique quel lot prélever. Les lots périmés ne sont jamais proposés à l’envoi.</p>
     <form id="dlcf" class="grid2">${field('Alerter quand la DLC arrive dans (jours)',inp('alerte',dlcCfg().alerte,'type="number" min="1" inputmode="numeric"'))}<div class="fld" style="justify-content:flex-end"><button class="btn">Enregistrer</button></div></form></div></div>
@@ -1662,6 +1686,7 @@ function clientForm(src){
     const row=Object.assign(c,{nom:d.nom.trim(),type:d.type,contact:d.contact.trim(),telephone:d.telephone.trim(),email:d.email.trim(),prix_prep:n(d.prix_prep),prix_upsell:n(d.prix_upsell),prix_retour:n(d.prix_retour),emballage:d.emballage||'',notes:d.notes.trim(),actif:isNew?true:d.actif==='1'});
     ['tarifs','tarif_commande','tarif_stockage'].forEach(k=>delete row[k]);
     closeModal();save('clients',row);toast(isNew?'Client ajouté':'Client mis à jour');
+    if(!isNew){const pl=recalcPlan(row.id,false);if(pl.length&&confirm(`${pl.length} commande(s) non payée(s) de ${row.nom} n’ont pas le bon montant avec ces prix.\nTotal : ${eur(pl.reduce((s,x)=>s+x.o.montant,0))} → ${eur(pl.reduce((s,x)=>s+x.n,0))}\n\nRecalculer maintenant ?`))applyRecalc(pl)}
   }});
 }
 function saveParam(id,valeur){const ex=DB.parametres.find(x=>x.id===id);save('parametres',Object.assign({},ex||{},{id,valeur}))}
@@ -1780,7 +1805,7 @@ const ACT={
   go:d=>go(d.r),close:()=>closeModal(),
   newOrder:()=>orderForm(),newOrderFor:d=>orderForm(null,d.id),editOrder:d=>{closeModal();orderForm(findO(d.id))},
   newReturn:()=>{closeModal();returnNewForm()},newReturnFor:d=>{closeModal();returnNewForm(d.id)},editReturn:d=>{closeModal();returnForm(DB.retours.find(r=>r.id===d.id))},
-  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},repCopy:()=>copy(repText()),sessAdd:()=>sessForm(),sessDel:d=>{if(confirm('Supprimer cette session ?')){saveParam('sessions',JSON.stringify(sessions().filter(x=>x.id!==d.id)));render()}},
+  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},checkData:()=>checkForm(),recalcGo:d=>{const D=dataCheck();closeModal();applyRecalc(d.w==='paid'?D.paid:D.unpaid);setTimeout(checkForm,150)},recalcIgnore:()=>{const ign=LS.get('cs_recalcIgnore',{});dataCheck().unpaid.forEach(x=>ign[x.o.id]=x.o.montant);LS.set('cs_recalcIgnore',ign);closeModal();render();toast('Écarts ignorés')},fixExp:()=>{const a=dataCheck().noExp;closeModal();saveMany(a.map(o=>['commandes',{...o,date_exp:o.date}]),`Dates d’expédition complétées (${a.length})`);toast(`${a.length} date(s) complétée(s)`);setTimeout(checkForm,150)},repCopy:()=>copy(repText()),sessAdd:()=>sessForm(),sessDel:d=>{if(confirm('Supprimer cette session ?')){saveParam('sessions',JSON.stringify(sessions().filter(x=>x.id!==d.id)));render()}},
   repCsv:()=>{const R=repData(F.rep.per,F.rep.u);download(`rapport-preparation-${R.a}_${R.b}.csv`,csv([['Date','Heure','Préparateur','Durée (min)','Cueillette (min)','Commandes','Articles','Revenus','Cdes/h','€/h','Écarts','Codes tapés','Saisie']].concat(R.ss.map(x=>[x.d,x.h||'',x.u||'',x.min,x.pick??'',x.cmd,x.art||'',x.rev??'',Math.round(x.cmd/(x.min/60)),x.rev!=null?round2(x.rev/(x.min/60)):'',x.ecart||0,x.tape||0,x.manuel?'manuelle':'scan']))))},provAdd:d=>provForm(d.id,'add'),provUse:d=>provForm(d.id,'use'),provPay:d=>provPay(d.id),provDel:d=>{const x=DB.provisions.find(y=>y.id===d.id);if(x&&confirm(`Supprimer cette ligne (${x.sens==='versement'?'+':'−'}${eur(x.montant)}) ?`)){removeRow('provisions',d.id)}},ecartDel:d=>{saveParam('ecarts',JSON.stringify(ecarts().filter(e=>e.id!==d.id)));render()},ecartsClear:()=>{if(confirm('Effacer tous les écarts ?')){saveParam('ecarts','[]');render()}},
   newProduct:()=>productForm(),newProductFor:d=>{closeModal();productForm(null,d.id)},editProduct:d=>{closeModal();productForm(prod(d.id))},prodHist:d=>prodHistory(d.id),
   importOrders:d=>{closeModal();importForm(d.id)},newClient:()=>clientForm(),editClient:d=>clientForm(client(d.id)),openClient:d=>go('client',d.id),
