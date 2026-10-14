@@ -315,9 +315,14 @@ body.role-prep .search,body.role-prep [data-act="newOrder"]{display:none!importa
 /* ===== Mode scan ===== */
 #scanui{display:none;position:fixed;inset:0;z-index:80;background:var(--bg);color:var(--ink);flex-direction:column}
 #scanui.open{display:flex}
-.sc-top{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--side)}
+#scTopW{flex:none}#scanui.confirming .sc-cam{height:min(16vh,140px)}.sc-cam{transition:height .2s}.sc-top{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:calc(8px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--side);position:relative;z-index:7}
+.sc-top .btn{padding:10px 16px;font-size:15px}
+@media (max-width:560px){.sc-stats{order:3;flex-basis:100%;gap:12px}}
+.sc-rest{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);font-size:14px}.sc-rest b{font-size:18px;color:var(--ink)}
+.sc-count{margin-top:14px;padding:14px;border-radius:14px;background:var(--accent-soft);text-align:center}.sc-count .big{font-size:44px;font-weight:900;line-height:1.1}
+#scPane{padding-bottom:env(safe-area-inset-bottom)}
 .sc-top b{font-size:15px}.sc-top .sp{margin-left:auto;display:flex;gap:8px;align-items:center}
-.sc-stats{display:flex;gap:14px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}.sc-stats b{color:var(--ink)}
+.sc-stats{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}.sc-stats b{color:var(--ink)}
 .sc-cam{position:relative;background:#000;height:min(36vh,320px);overflow:hidden;flex:none}
 .sc-cam video{width:100%;height:100%;object-fit:cover}
 .sc-cam .reticle{position:absolute;top:50%;left:50%;height:76%;aspect-ratio:1/1;transform:translate(-50%,-50%);border:3px solid rgba(185,242,62,.9);border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
@@ -630,6 +635,7 @@ function allBins(){const m={};DB.produits.filter(p=>p.actif&&p.emplacement).forE
   return Object.keys(m).sort((a,b)=>a.localeCompare(b,'fr',{numeric:true})).map(k=>({bin:k,prods:m[k]}))}
 function qrSvg(text,size){if(window.qrcode.stringToBytesFuncs)window.qrcode.stringToBytes=window.qrcode.stringToBytesFuncs['UTF-8'];const q=window.qrcode(0,'M');q.addData(text);q.make();const n=q.getModuleCount(),qz=2,tot=n+qz*2;let d='';for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(q.isDark(r,c))d+=`M${c+qz} ${r+qz}h1v1h-1z`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${tot} ${tot}" width="${size}" height="${size}" shape-rendering="crispEdges"><rect width="${tot}" height="${tot}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`}
+function ecarts(){const r=DB.parametres.find(x=>x.id==='ecarts');try{return r&&r.valeur?JSON.parse(r.valeur):[]}catch(e){return[]}}
 function sessions(){const r=DB.parametres.find(x=>x.id==='sessions');try{return r&&r.valeur?JSON.parse(r.valeur):[]}catch(e){return[]}}
 function cadence(days){const from=addDays(todayStr(),-(days-1));const ss=sessions().filter(x=>x.d>=from&&x.min>0);const cmd=ss.reduce((a,x)=>a+x.cmd,0),min=ss.reduce((a,x)=>a+x.min,0),art=ss.reduce((a,x)=>a+x.art,0);
   return{n:ss.length,cmd,art,min,cph:min?cmd/(min/60):null,aph:min?art/(min/60):null,best:ss.reduce((b,x)=>Math.max(b,x.min?x.cmd/(x.min/60):0),0)}}
@@ -849,6 +855,7 @@ function vPicking(){
     <select data-f="pick.inc">${opt('a_preparer','À préparer',f.inc)}${opt('both','À préparer + préparées (à expédier)',f.inc)}</select>
     <div class="sp noprint"><button class="btn ghost" data-act="printPick">Imprimer</button>${os.length?'<button class="btn primary" data-act="scanStart" style="font-size:15px">⚡ Mode scan</button>':''}${os.length?`<button class="btn" data-act="pickAll" data-v="preparee">Tout marquer préparé</button><button class="btn primary" data-act="pickAll" data-v="expediee">Tout expédié ✓</button>`:''}</div>
   </div>
+  ${(()=>{const E=ecarts();if(!E.length)return'';return `<div class="card" style="border-color:var(--warn)"><div class="card-h"><h2>⚠ Écarts de prélèvement à recompter</h2><span class="muted small">signalés pendant le scan</span><div class="sp"><button class="link" data-act="ecartsClear">Tout effacer</button></div></div><div class="tbl"><table><thead><tr><th>Date</th><th>Bac</th><th>Produit</th><th class="r">Demandé</th><th class="r">Pris</th><th class="r">Reste théorique</th><th class="r">Reste compté</th><th></th></tr></thead><tbody>${E.slice().reverse().map(e=>`<tr><td>${fd(e.d)}${e.u?`<br><span class="muted small">${h(e.u)}</span>`:''}</td><td><b>${h(e.bin)}</b></td><td>${h(e.p.map(pname).join(', '))}</td><td class="r">${e.demande}</td><td class="r ${e.pris<e.demande?'neg':''}">${e.pris}</td><td class="r">${e.theo}</td><td class="r"><b>${e.reste}</b></td><td class="r nowrap">${ROLE==='prep'?'':`<button class="btn sm" data-act="adjust" data-id="${e.p[0]}">Corriger le stock</button> `}<button class="link" data-act="ecartDel" data-id="${e.id}">OK</button></td></tr>`).join('')}</tbody></table></div></div>`})()}
   <div class="kpis">
     ${kpi('Commandes',os.length,f.inc==='both'?'à préparer ou à expédier':'à préparer')}
     ${kpi('Articles à prélever',num(nArt),`${rows.length} référence(s)`)}
@@ -1094,7 +1101,7 @@ function scanStart(){
   const agg={};os.forEach(o=>o.lignes.forEach(l=>{(agg[l.p]||(agg[l.p]={p:l.p,q:0})).q+=l.q}));
   const byBin={};Object.values(agg).forEach(a=>{const pr=prod(a.p);const b=pr&&pr.emplacement?binKey(pr.emplacement):'';const k=b||('~'+a.p);(byBin[k]||(byBin[k]={bin:b,items:[]})).items.push({...a,lots:pickLots(a.p,a.q)})});
   const picks=Object.values(byBin).sort((a,b)=>(a.bin||'~').localeCompare(b.bin||'~','fr',{numeric:true}));
-  Object.assign(SC,{help:false,typed:0,nobin:0,on:true,phase:'pick',orders:os.map(o=>o.id),picks,i:0,done:new Set(),packed:new Set(),skipped:new Set(),oi:0,t0:Date.now(),last:'',lastT:0,buf:'',bufT:0,msg:'',msgT:''});
+  Object.assign(SC,{confirm:null,chk:new Set(),help:false,typed:0,nobin:0,on:true,phase:'pick',orders:os.map(o=>o.id),picks,i:0,done:new Set(),packed:new Set(),skipped:new Set(),oi:0,t0:Date.now(),last:'',lastT:0,buf:'',bufT:0,msg:'',msgT:''});
   try{const A=window.AudioContext||window.webkitAudioContext;SC.ac=SC.ac||new A();SC.ac.resume&&SC.ac.resume();const o=SC.ac.createOscillator(),g=SC.ac.createGain();g.gain.value=0;o.connect(g);g.connect(SC.ac.destination);o.start();o.stop(SC.ac.currentTime+.01)}catch(e){}
   $('#scanui').classList.add('open');document.body.style.overflow='hidden';scanDraw();camStart();
 }
@@ -1121,7 +1128,9 @@ function onScan(raw){
   if(idx<0){feedback(false);scanMsg(`✗ ${code} : aucun article à prendre dans ce bac`,false);return}
   if(SC.done.has(idx)){feedback(false);scanMsg(`Bac ${code} déjà prélevé`,false);return}
   if(idx!==SC.i){const cur=SC.picks[SC.i];feedback(false);scanMsg(`✗ Pas encore ${code} — prends d’abord ${cur.bin||'le produit affiché'} (×${cur.items.reduce((a,i)=>a+i.q,0)})`,false);return}
-  SC.done.add(idx);feedback(true);scanMsg(`✓ ${code} prélevé`,true);advance();
+  const qq=SC.picks[idx].items.reduce((a,i)=>a+i.q,0);
+  if(qq>=2){if(SC.confirm===idx)return;SC.confirm=idx;feedback(true);scanMsg(`✓ Bon bac — compte ×${qq} puis confirme`,true);scanDraw();return}
+  SC.done.add(idx);SC.confirm=null;feedback(true);scanMsg(`✓ ${code} prélevé`,true);advance();
 }
 function advance(){const n=SC.picks.length;for(let k=0;k<n;k++){const j=(SC.i+k)%n;if(!SC.done.has(j)){SC.i=j;scanDraw();return}}SC.phase='pack';SC.oi=0;camStop();scanDraw();}
 function camStop(){if(SC.raf)cancelAnimationFrame(SC.raf);SC.raf=0;if(SC.stream){SC.stream.getTracks().forEach(t=>t.stop());SC.stream=null}}
@@ -1147,7 +1156,7 @@ async function camStart(){
 function scanDraw(){
   const ui=$('#scanui');if(!SC.on)return;const t=Date.now(),min=Math.max(.1,(t-SC.t0)/60000);
   const nPick=SC.picks.length,nDone=SC.done.size,nOrd=SC.orders.length,nPack=SC.packed.size;
-  const top=`<div class="sc-top"><b>⚡ ${SC.phase==='pick'?'Cueillette':'Emballage'}</b><span class="sc-stats"><span><b id="scClock">${Math.floor(min)}:${String(Math.floor((t-SC.t0)/1000)%60).padStart(2,'0')}</b></span><span><b>${SC.phase==='pick'?`${nDone}/${nPick}`:`${nPack}/${nOrd}`}</b> ${SC.phase==='pick'?'bacs':'colis'}</span>${nPack?`<span><b>${Math.round(nPack/min*60)}</b> cdes/h</span>`:''}</span><span class="sp"><button class="btn sm" data-sc="close">Terminer</button></span></div>`;
+  const top=`<div class="sc-top"><b>⚡ ${SC.phase==='pick'?'Cueillette':'Emballage'}</b><span class="sp"><button class="btn sm" data-sc="close">Terminer</button></span><span class="sc-stats"><span><b id="scClock">${Math.floor(min)}:${String(Math.floor((t-SC.t0)/1000)%60).padStart(2,'0')}</b></span><span><b>${SC.phase==='pick'?`${nDone}/${nPick}`:`${nPack}/${nOrd}`}</b> ${SC.phase==='pick'?'bacs':'colis'}</span>${nPack?`<span><b>${Math.round(nPack/min*60)}</b> cdes/h</span>`:''}</span></div>`;
   let body='';
   if(SC.phase==='pick'){
     const cur=SC.picks[SC.i],rest=SC.picks.map((x,j)=>({x,j})).filter(o=>!SC.done.has(o.j)&&o.j!==SC.i);
@@ -1155,16 +1164,17 @@ function scanDraw(){
       <div class="sc-msg ${SC.msgT}" id="scMsg">${h(SC.msg)}</div>
       <div class="sc-target"><div class="lbl">Aller au bac</div><div class="bin">${h(cur.bin||'Sans bac')}</div>
         ${cur.items.map(it=>`<div class="sc-item"><span class="q">×${it.q}</span><span class="nm"><b>${h(pname(it.p))}</b><small>${h(cname(prod(it.p)?.client_id))}</small>${it.lots?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${it.lots.lots.map(l=>pill(`${l.take} × ${lotLabel(l)}`,l.sans?'':l.etat==='proche'?'warn':'accent')).join('')}${it.lots.manque>0?pill(`${it.lots.manque} sans lot valide`,'bad'):''}</div>`:''}</span></div>`).join('')}
-        ${cur.bin?`<div class="sc-hint">📷 Scanne l’étiquette du bac pour valider</div>`:`<div class="sc-warn">Ce produit n’a pas d’emplacement : il ne peut pas être scanné. Vérifie le produit, puis valide. <b>Pense à lui attribuer un bac.</b></div><button class="btn primary sc-big" data-sc="nobin" style="margin-top:10px">J’ai pris le bon produit ✓</button>`}
+        ${(()=>{const rest=cur.items.reduce((a,i)=>a+stockOf(i.p),0),qq=cur.items.reduce((a,i)=>a+i.q,0);return `<div class="sc-rest">Après ta prise, il doit rester <b>${num(rest)}</b> dans le bac${rest<0?' <span class="neg">(stock insuffisant !)</span>':''}</div>`+(SC.confirm===SC.i?`<div class="sc-count"><div class="small muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.06em">Compte dans ta main</div><div class="big">${qq}</div><button class="btn primary sc-big" data-sc="qok" style="margin-top:8px">✓ J’en ai bien ${qq}</button><button class="btn ghost" data-sc="ecart" style="margin-top:8px;width:100%;justify-content:center">⚠ Pas assez dans le bac / écart</button></div>`:'')})()}
+        ${SC.confirm===SC.i?'':cur.bin?`<div class="sc-hint">📷 Scanne l’étiquette du bac pour valider</div>`:`<div class="sc-warn">Ce produit n’a pas d’emplacement : il ne peut pas être scanné. Vérifie le produit, puis valide. <b>Pense à lui attribuer un bac.</b></div><button class="btn primary sc-big" data-sc="nobin" style="margin-top:10px">J’ai pris le bon produit ✓</button>`}
         <div style="display:flex;justify-content:space-between;gap:8px;margin-top:10px"><button class="btn ghost sm" data-sc="skip">Passer ce bac</button>${cur.bin?'<button class="btn ghost sm" data-sc="help">Le scan ne marche pas ?</button>':''}</div></div>
       ${rest.length?`<div><div class="small muted" style="margin-bottom:6px">Ensuite</div><div class="sc-next">${rest.slice(0,12).map(o=>pill(`${o.x.bin||'—'} · ${o.x.items.reduce((a,i)=>a+i.q,0)} art.`,'')).join('')}${rest.length>12?pill('+'+(rest.length-12),''):''}</div></div>`:''}
       <form id="scManual" style="display:${SC.help?'flex':'none'};gap:6px" autocomplete="off"><input name="c" placeholder="Tape le code écrit sur l’étiquette (ex. B1)" autocapitalize="characters" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-size:16px"><button class="btn primary">Vérifier</button></form>
     </div>`;
   }else{
     const ids=SC.orders.filter(id=>!SC.packed.has(id)&&!SC.skipped.has(id)),o=findO(ids[0]);
-    if(!o){body=`<div class="sc-body" style="justify-content:center;align-items:center;text-align:center"><div style="font-size:64px">🎉</div><h2 style="margin:0">Session terminée</h2><p class="muted">${nPack} colis en ${Math.round(min)} min · <b style="color:var(--ink)">${Math.round(nPack/min*60)} commandes/heure</b></p>${SC.typed||SC.nobin?`<p class="muted small">${SC.typed?`${SC.typed} code(s) tapé(s) à la main`:''}${SC.typed&&SC.nobin?' · ':''}${SC.nobin?`${SC.nobin} produit(s) sans bac`:''}</p>`:''}${SC.skipped.size?`<p class="muted small">${SC.skipped.size} commande(s) passée(s), toujours à préparer.</p>`:''}<button class="btn primary sc-big" style="max-width:360px" data-sc="close">Fermer</button></div>`}
+    if(!o){body=`<div class="sc-body" style="justify-content:center;align-items:center;text-align:center"><div style="font-size:64px">🎉</div><h2 style="margin:0">Session terminée</h2><p class="small" style="margin:0">Contrôle final : il ne doit <b>rien</b> te rester en main. S’il reste un produit, une commande a été mal préparée.</p><p class="muted">${nPack} colis en ${Math.round(min)} min · <b style="color:var(--ink)">${Math.round(nPack/min*60)} commandes/heure</b></p>${SC.typed||SC.nobin?`<p class="muted small">${SC.typed?`${SC.typed} code(s) tapé(s) à la main`:''}${SC.typed&&SC.nobin?' · ':''}${SC.nobin?`${SC.nobin} produit(s) sans bac`:''}</p>`:''}${SC.skipped.size?`<p class="muted small">${SC.skipped.size} commande(s) passée(s), toujours à préparer.</p>`:''}<button class="btn primary sc-big" style="max-width:360px" data-sc="close">Fermer</button></div>`}
     else{const c=client(o.client_id);body=`<div class="sc-body"><div class="sc-bar"><i style="width:${nPack/nOrd*100}%"></i></div>
-      <div class="sc-order"><div class="lbl small muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.08em">Colis ${nPack+SC.skipped.size+1} / ${nOrd}</div><h2>${h(o.numero)}</h2><div class="muted">${h(cname(o.client_id))}${o.destinataire?' · '+h(o.destinataire):''}</div>
+      <div class="sc-order"><div class="lbl small muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.08em">Colis ${nPack+SC.skipped.size+1} / ${nOrd}</div><h2>${h(o.numero)}</h2><div class="muted">${h(cname(o.client_id))}${o.destinataire?' · '+h(o.destinataire):''}</div><div class="small" style="margin-top:4px">Vérifie : <b>${qtyOf(o)} article(s)</b> dans ce colis</div>
         ${o.lignes.map(l=>`<div class="sc-item"><span class="q">×${l.q}</span><span class="nm"><b>${h(pname(l.p))}</b></span></div>`).join('')}${o.ups?`<div class="sc-item"><span class="q">★</span><span class="nm"><b>${o.ups} upsell</b></span></div>`:''}</div>
       ${c?`<div class="sc-cons"><div class="sc-cons-h">📋 Consignes ${h(c.nom)} <span class="small muted">· touche chaque étape quand c’est fait</span></div>${stepsHtml(c,o,false,true)}</div>`:''}
       ${(()=>{const n=c?packSteps(c,o).filter(x=>!x.off).length:0,d=n?packSteps(c,o).filter((x,i)=>!x.off&&SC.chk&&SC.chk.has(`${o.id}:${i}`)).length:0;return `<button class="btn primary sc-big" data-sc="packed" data-id="${o.id}">${n&&d<n?`Colis prêt (${d}/${n} étapes) · Expédiée ✓`:'Colis prêt · Expédiée ✓'}</button>`})()}
@@ -1175,6 +1185,7 @@ function scanDraw(){
   if(SC.phase==='pick'){if(!$('#scVideo'))cw.innerHTML='<div class="sc-cam"><video id="scVideo" playsinline muted autoplay></video><div class="reticle"></div><div class="camoff" id="scOff">Ouverture de la caméra…</div><div class="sc-read" id="scRead"></div></div>'}
   else if(cw.firstChild)cw.innerHTML='';
   $('#scPane').innerHTML=body;
+  ui.classList.toggle('confirming',SC.phase==='pick'&&SC.confirm!=null&&SC.confirm===SC.i);if(ui.classList.contains('confirming'))setTimeout(()=>$('[data-sc=qok]')?.scrollIntoView({block:'end',behavior:'smooth'}),30);
   if(SC.phase==='pick'){const v=$('#scVideo');if(SC.stream&&v&&v.srcObject!==SC.stream){v.srcObject=SC.stream;v.play().catch(()=>{});$('#scOff').style.display='none'}
     $('#scManual').onsubmit=e=>{e.preventDefault();const c=e.target.elements.c.value;e.target.elements.c.value='';SC.typed=(SC.typed||0)+1;onScan(c)}}
 }
@@ -1183,7 +1194,12 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-sc]');if(!
   if(a==='close'){if(SC.phase==='pick'&&SC.done.size&&!confirm('Arrêter la session ? Les commandes restent à préparer.'))return;scanStop()}
   else if(a==='nobin'){SC.done.add(SC.i);SC.nobin=(SC.nobin||0)+1;feedback(true);scanMsg('✓ Validé (produit sans bac)',true);advance()}
   else if(a==='help'){SC.help=!SC.help;scanDraw();if(SC.help)setTimeout(()=>$('#scManual input')?.focus(),50)}
-  else if(a==='skip'){const n=SC.picks.length;for(let k=1;k<=n;k++){const j=(SC.i+k)%n;if(!SC.done.has(j)){SC.i=j;break}}scanMsg('',true);scanDraw()}
+  else if(a==='qok'){const i=SC.confirm;if(i==null)return;SC.done.add(i);SC.confirm=null;try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}scanMsg(`✓ ${SC.picks[i].bin} ×${SC.picks[i].items.reduce((x,y)=>x+y.q,0)} prélevé`,true);advance()}
+  else if(a==='ecart'){const i=SC.confirm,cur=SC.picks[i];if(i==null)return;const exp=cur.items.reduce((x,y)=>x+y.q,0);
+    const pris=prompt(`Combien en as-tu pris réellement ? (demandé : ${exp})`,String(exp));if(pris===null)return;const reste=prompt('Combien en reste-t-il maintenant dans le bac ?','0');if(reste===null)return;
+    const E=ecarts();E.push({id:uid('e'),d:todayStr(),u:LS.get('cs_user',''),bin:cur.bin,p:cur.items.map(x=>x.p),demande:exp,pris:Number(pris)||0,theo:cur.items.reduce((x,y)=>x+stockOf(y.p),0),reste:Number(reste)||0});saveParam('ecarts',JSON.stringify(E.slice(-200)));
+    SC.done.add(i);SC.confirm=null;feedback(false);scanMsg(`⚠ Écart signalé sur ${cur.bin} — à recompter`,false);advance()}
+  else if(a==='skip'){SC.confirm=null;const n=SC.picks.length;for(let k=1;k<=n;k++){const j=(SC.i+k)%n;if(!SC.done.has(j)){SC.i=j;break}}scanMsg('',true);scanDraw()}
   else if(a==='step'){SC.chk=SC.chk||new Set();const k=b.dataset.k;SC.chk.has(k)?SC.chk.delete(k):SC.chk.add(k);const y=$('#scPane .sc-body')?.scrollTop;scanDraw();const bd=$('#scPane .sc-body');if(bd&&y!=null)bd.scrollTop=y}
   else if(a==='packed'){const o=findO(b.dataset.id);{const c=client(o.client_id);if(c){const st=packSteps(c,o).map((x,i)=>({x,i})).filter(z=>!z.x.off),miss=st.filter(z=>!(SC.chk&&SC.chk.has(`${o.id}:${z.i}`)));if(miss.length&&st.length&&!confirm(`Étapes pas cochées :\n• ${miss.map(z=>z.x.txt).join('\n• ')}\n\nFermer le colis quand même ?`))return}}SC.packed.add(o.id);feedback(true);save('commandes',setStatus(o,'expediee'));scanDraw()}
   else if(a==='skipOrder'){SC.skipped.add(b.dataset.id);scanDraw()}
@@ -1682,7 +1698,7 @@ const ACT={
   go:d=>go(d.r),close:()=>closeModal(),
   newOrder:()=>orderForm(),newOrderFor:d=>orderForm(null,d.id),editOrder:d=>{closeModal();orderForm(findO(d.id))},
   newReturn:()=>{closeModal();returnNewForm()},newReturnFor:d=>{closeModal();returnNewForm(d.id)},editReturn:d=>{closeModal();returnForm(DB.retours.find(r=>r.id===d.id))},
-  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},
+  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},ecartDel:d=>{saveParam('ecarts',JSON.stringify(ecarts().filter(e=>e.id!==d.id)));render()},ecartsClear:()=>{if(confirm('Effacer tous les écarts ?')){saveParam('ecarts','[]');render()}},
   newProduct:()=>productForm(),newProductFor:d=>{closeModal();productForm(null,d.id)},editProduct:d=>{closeModal();productForm(prod(d.id))},prodHist:d=>prodHistory(d.id),
   importOrders:d=>{closeModal();importForm(d.id)},newClient:()=>clientForm(),editClient:d=>clientForm(client(d.id)),openClient:d=>go('client',d.id),
   ordersOfClient:d=>{F.orders={q:'',client:d.id,statut:'',pay:'',month:''};go('orders')},
