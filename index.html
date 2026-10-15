@@ -318,7 +318,7 @@ body.role-prep .search,body.role-prep [data-act="newOrder"]{display:none!importa
 /* ===== Mode scan ===== */
 #scanui{display:none;position:fixed;inset:0;z-index:80;background:var(--bg);color:var(--ink);flex-direction:column}
 #scanui.open{display:flex}
-#scTopW{flex:none}#scanui.confirming .sc-cam{height:min(16vh,140px)}.sc-cam{transition:height .2s}.sc-top{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:calc(8px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--side);position:relative;z-index:7}
+#scTopW{flex:none}.sc-gun{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}.sc-gun small{display:block;color:var(--muted)}.sc-gun .sc-read{background:var(--panel2);color:var(--ink)}#scanui.confirming .sc-cam{height:min(16vh,140px)}.sc-cam{transition:height .2s}.sc-top{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:calc(8px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--side);position:relative;z-index:7}
 .sc-top .btn{padding:10px 16px;font-size:15px}
 @media (max-width:560px){.sc-stats{order:3;flex-basis:100%;gap:12px}}
 .sc-rest{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);font-size:14px}.sc-rest b{font-size:18px;color:var(--ink)}
@@ -1202,10 +1202,12 @@ function scanStart(){
   const picks=Object.values(byBin).sort((a,b)=>(a.bin||'~').localeCompare(b.bin||'~','fr',{numeric:true}));
   Object.assign(SC,{tPick:0,nEcart:0,confirm:null,chk:new Set(),help:false,typed:0,nobin:0,on:true,phase:'pick',orders:os.map(o=>o.id),picks,i:0,done:new Set(),packed:new Set(),skipped:new Set(),oi:0,t0:Date.now(),last:'',lastT:0,buf:'',bufT:0,msg:'',msgT:''});
   try{const A=window.AudioContext||window.webkitAudioContext;SC.ac=SC.ac||new A();SC.ac.resume&&SC.ac.resume();const o=SC.ac.createOscillator(),g=SC.ac.createGain();g.gain.value=0;o.connect(g);g.connect(SC.ac.destination);o.start();o.stop(SC.ac.currentTime+.01)}catch(e){}
-  $('#scanui').classList.add('open');document.body.style.overflow='hidden';scanDraw();camStart();
+  SC.gun=LS.get('cs_scanmode','cam')==='gun';
+  try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(l=>SC.wake=l).catch(()=>{})}catch(e){}
+  $('#scanui').classList.add('open');document.body.style.overflow='hidden';scanDraw();if(!SC.gun)camStart();
 }
 function scanStop(silent){
-  if(!SC.on)return;camStop();SC.on=false;$('#scanui').classList.remove('open');$('#scanui').innerHTML='';document.body.style.overflow='';
+  if(!SC.on)return;camStop();try{SC.wake&&SC.wake.release();SC.wake=null}catch(e){}SC.on=false;$('#scanui').classList.remove('open');$('#scanui').innerHTML='';document.body.style.overflow='';
   const n=SC.packed.size,min=(Date.now()-SC.t0)/60000;
   if(n){const art=SC.orders.filter(id=>SC.packed.has(id)).map(findO).filter(Boolean).reduce((a,o)=>a+qtyOf(o),0);
     const packed=SC.orders.filter(id=>SC.packed.has(id)).map(findO).filter(Boolean),rev=round2(packed.reduce((a,o)=>a+(Number(o.montant)||0),0)),revL=round2(packed.filter(o=>isLogi(client(o.client_id))).reduce((a,o)=>a+(Number(o.montant)||0),0)),byc={};packed.forEach(o=>byc[o.client_id]=(byc[o.client_id]||0)+1);
@@ -1219,7 +1221,9 @@ function feedback(ok){try{navigator.vibrate&&navigator.vibrate(ok?80:[200,80,200
     if(ok){tone(1175,'square',0,.09,.22);tone(1760,'square',.1,.13,.22)}else{tone(220,'square',0,.18,.3);tone(165,'square',.2,.3,.3)}}catch(e){}
   const fl=$('#scFlash');if(fl){clearTimeout(SC.flT);fl.textContent=ok?'✓':'✗';fl.className='sc-flash '+(ok?'ok':'bad');SC.flT=setTimeout(()=>{const f=$('#scFlash');if(f)f.className='sc-flash'},ok?450:700)}}
 function scanMsg(t,ok){SC.msg=t;SC.msgT=ok?'ok':'bad';const m=$('#scMsg');if(m){m.textContent=t;m.className='sc-msg '+SC.msgT}}
-function onScan(raw){
+const AZ2US={'Q':'A','A':'Q','Z':'W','W':'Z','?':'M','M':':','q':'a','a':'q','z':'w','w':'z',',':'m','m':';',';':',',':':'.','!':'/','&':'1','é':'2','"':'3',"'":'4','(':'5','-':'6','è':'7','_':'8','ç':'9','à':'0',')':'-','°':'_'};
+function fixLayout(raw){const t=String(raw||'').trim();if(/^CS:BIN:/i.test(t))return t;const u=[...t].map(ch=>AZ2US[ch]??ch).join('');return /^CS:BIN:/i.test(u)?u:t}
+function onScan(raw){raw=fixLayout(raw);
   if(!SC.on)return;const code=binKey(raw);if(!String(raw||'').trim())return;const rd=$('#scRead');if(rd)rd.textContent='Lu : '+String(raw).trim().slice(0,48);
   if(!code)return;
   const now=Date.now();if(code===SC.last&&now-SC.lastT<1500){SC.lastT=now;return}SC.last=code;SC.lastT=now;
@@ -1229,7 +1233,7 @@ function onScan(raw){
   if(SC.done.has(idx)){feedback(false);scanMsg(`Bac ${code} déjà prélevé`,false);return}
   if(idx!==SC.i){const cur=SC.picks[SC.i];feedback(false);scanMsg(`✗ Pas encore ${code} — prends d’abord ${cur.bin||'le produit affiché'} (×${cur.items.reduce((a,i)=>a+i.q,0)})`,false);return}
   const qq=SC.picks[idx].items.reduce((a,i)=>a+i.q,0);
-  if(qq>=2){if(SC.confirm===idx)return;SC.confirm=idx;feedback(true);scanMsg(`✓ Bon bac — compte ×${qq} puis confirme`,true);scanDraw();return}
+  if(qq>=2){if(SC.confirm===idx){SC.done.add(idx);SC.confirm=null;feedback(true);scanMsg(`✓ ${code} ×${qq} prélevé`,true);advance();return}SC.confirm=idx;feedback(true);scanMsg(`✓ Bon bac — compte ×${qq} puis confirme`,true);scanDraw();return}
   SC.done.add(idx);SC.confirm=null;feedback(true);scanMsg(`✓ ${code} prélevé`,true);advance();
 }
 function advance(){const n=SC.picks.length;for(let k=0;k<n;k++){const j=(SC.i+k)%n;if(!SC.done.has(j)){SC.i=j;scanDraw();return}}SC.phase='pack';SC.tPick=Date.now();SC.oi=0;camStop();scanDraw();}
@@ -1256,7 +1260,7 @@ async function camStart(){
 function scanDraw(){
   const ui=$('#scanui');if(!SC.on)return;const t=Date.now(),min=Math.max(.1,(t-SC.t0)/60000);
   const nPick=SC.picks.length,nDone=SC.done.size,nOrd=SC.orders.length,nPack=SC.packed.size;
-  const top=`<div class="sc-top"><b>⚡ ${SC.phase==='pick'?'Cueillette':'Emballage'}</b><span class="sp"><button class="btn sm" data-sc="close">Terminer</button></span><span class="sc-stats"><span><b id="scClock">${Math.floor(min)}:${String(Math.floor((t-SC.t0)/1000)%60).padStart(2,'0')}</b></span><span><b>${SC.phase==='pick'?`${nDone}/${nPick}`:`${nPack}/${nOrd}`}</b> ${SC.phase==='pick'?'bacs':'colis'}</span>${nPack?`<span><b>${Math.round(nPack/min*60)}</b> cdes/h</span><span><b>${eur(SC.orders.filter(id=>SC.packed.has(id)).map(findO).filter(Boolean).reduce((a,o)=>a+(Number(o.montant)||0),0))}</b> générés</span>`:''}</span></div>`;
+  const top=`<div class="sc-top"><b>⚡ ${SC.phase==='pick'?'Cueillette':'Emballage'}</b>${SC.phase==='pick'?`<button class="btn sm ghost" data-sc="mode" title="Changer de mode">${SC.gun?'📷 Caméra':'🔫 Douchette'}</button>`:''}<span class="sp"><button class="btn sm" data-sc="close">Terminer</button></span><span class="sc-stats"><span><b id="scClock">${Math.floor(min)}:${String(Math.floor((t-SC.t0)/1000)%60).padStart(2,'0')}</b></span><span><b>${SC.phase==='pick'?`${nDone}/${nPick}`:`${nPack}/${nOrd}`}</b> ${SC.phase==='pick'?'bacs':'colis'}</span>${nPack?`<span><b>${Math.round(nPack/min*60)}</b> cdes/h</span><span><b>${eur(SC.orders.filter(id=>SC.packed.has(id)).map(findO).filter(Boolean).reduce((a,o)=>a+(Number(o.montant)||0),0))}</b> générés</span>`:''}</span></div>`;
   let body='';
   if(SC.phase==='pick'){
     const cur=SC.picks[SC.i],rest=SC.picks.map((x,j)=>({x,j})).filter(o=>!SC.done.has(o.j)&&o.j!==SC.i);
@@ -1264,7 +1268,7 @@ function scanDraw(){
       <div class="sc-msg ${SC.msgT}" id="scMsg">${h(SC.msg)}</div>
       <div class="sc-target"><div class="lbl">Aller au bac</div><div class="bin">${h(cur.bin||'Sans bac')}</div>
         ${cur.items.map(it=>`<div class="sc-item"><span class="q">×${it.q}</span><span class="nm"><b>${h(pname(it.p))}</b><small>${h(cname(prod(it.p)?.client_id))}</small>${it.lots?`<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${it.lots.lots.map(l=>pill(`${l.take} × ${lotLabel(l)}`,l.sans?'':l.etat==='proche'?'warn':'accent')).join('')}${it.lots.manque>0?pill(`${it.lots.manque} sans lot valide`,'bad'):''}</div>`:''}</span></div>`).join('')}
-        ${(()=>{const rest=cur.items.reduce((a,i)=>a+stockOf(i.p),0),qq=cur.items.reduce((a,i)=>a+i.q,0);return `<div class="sc-rest">Après ta prise, il doit rester <b>${num(rest)}</b> dans le bac${rest<0?' <span class="neg">(stock insuffisant !)</span>':''}</div>`+(SC.confirm===SC.i?`<div class="sc-count"><div class="small muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.06em">Compte dans ta main</div><div class="big">${qq}</div><button class="btn primary sc-big" data-sc="qok" style="margin-top:8px">✓ J’en ai bien ${qq}</button><button class="btn ghost" data-sc="ecart" style="margin-top:8px;width:100%;justify-content:center">⚠ Pas assez dans le bac / écart</button></div>`:'')})()}
+        ${(()=>{const rest=cur.items.reduce((a,i)=>a+stockOf(i.p),0),qq=cur.items.reduce((a,i)=>a+i.q,0);return `<div class="sc-rest">Après ta prise, il doit rester <b>${num(rest)}</b> dans le bac${rest<0?' <span class="neg">(stock insuffisant !)</span>':''}</div>`+(SC.confirm===SC.i?`<div class="sc-count"><div class="small muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.06em">Compte dans ta main</div><div class="big">${qq}</div><button class="btn primary sc-big" data-sc="qok" style="margin-top:8px">✓ J’en ai bien ${qq}</button><div class="small muted" style="margin-top:6px">ou rescanne le bac pour confirmer</div><button class="btn ghost" data-sc="ecart" style="margin-top:8px;width:100%;justify-content:center">⚠ Pas assez dans le bac / écart</button></div>`:'')})()}
         ${SC.confirm===SC.i?'':cur.bin?`<div class="sc-hint">📷 Scanne l’étiquette du bac pour valider</div>`:`<div class="sc-warn">Ce produit n’a pas d’emplacement : il ne peut pas être scanné. Vérifie le produit, puis valide. <b>Pense à lui attribuer un bac.</b></div><button class="btn primary sc-big" data-sc="nobin" style="margin-top:10px">J’ai pris le bon produit ✓</button>`}
         <div style="display:flex;justify-content:space-between;gap:8px;margin-top:10px"><button class="btn ghost sm" data-sc="skip">Passer ce bac</button>${cur.bin?'<button class="btn ghost sm" data-sc="help">Le scan ne marche pas ?</button>':''}</div></div>
       ${rest.length?`<div><div class="small muted" style="margin-bottom:6px">Ensuite</div><div class="sc-next">${rest.slice(0,12).map(o=>pill(`${o.x.bin||'—'} · ${o.x.items.reduce((a,i)=>a+i.q,0)} art.`,'')).join('')}${rest.length>12?pill('+'+(rest.length-12),''):''}</div></div>`:''}
@@ -1282,7 +1286,8 @@ function scanDraw(){
   }
   if(!$('#scTopW'))ui.innerHTML='<div id="scTopW"></div><div id="scCamW"></div><div id="scPane" style="flex:1;min-height:0;display:flex;flex-direction:column"></div><div class="sc-flash" id="scFlash"></div>';
   $('#scTopW').innerHTML=top;const cw=$('#scCamW');
-  if(SC.phase==='pick'){if(!$('#scVideo'))cw.innerHTML='<div class="sc-cam"><video id="scVideo" playsinline muted autoplay></video><div class="reticle"></div><div class="camoff" id="scOff">Ouverture de la caméra…</div><div class="sc-read" id="scRead"></div></div>'}
+  if(SC.phase==='pick'&&SC.gun){if(!$('#scGun'))cw.innerHTML='<div class="sc-gun" id="scGun"><span style="font-size:26px">🔫</span><span><b>Mode douchette</b><small>Scanne l’étiquette du bac avec le lecteur</small></span><span class="sc-read" id="scRead" style="position:static;margin-left:auto"></span></div>'}
+  else if(SC.phase==='pick'){if($('#scGun'))cw.innerHTML='';if(!$('#scVideo'))cw.innerHTML='<div class="sc-cam"><video id="scVideo" playsinline muted autoplay></video><div class="reticle"></div><div class="camoff" id="scOff">Ouverture de la caméra…</div><div class="sc-read" id="scRead"></div></div>'}
   else if(cw.firstChild)cw.innerHTML='';
   $('#scPane').innerHTML=body;
   ui.classList.toggle('confirming',SC.phase==='pick'&&SC.confirm!=null&&SC.confirm===SC.i);if(ui.classList.contains('confirming'))setTimeout(()=>$('[data-sc=qok]')?.scrollIntoView({block:'end',behavior:'smooth'}),30);
@@ -1294,6 +1299,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-sc]');if(!
   if(a==='close'){if(SC.phase==='pick'&&SC.done.size&&!confirm('Arrêter la session ? Les commandes restent à préparer.'))return;scanStop()}
   else if(a==='nobin'){SC.done.add(SC.i);SC.nobin=(SC.nobin||0)+1;feedback(true);scanMsg('✓ Validé (produit sans bac)',true);advance()}
   else if(a==='help'){SC.help=!SC.help;scanDraw();if(SC.help)setTimeout(()=>$('#scManual input')?.focus(),50)}
+  else if(a==='mode'){SC.gun=!SC.gun;LS.set('cs_scanmode',SC.gun?'gun':'cam');if(SC.gun)camStop();$('#scCamW').innerHTML='';scanDraw();if(!SC.gun)camStart()}
   else if(a==='qok'){const i=SC.confirm;if(i==null)return;SC.done.add(i);SC.confirm=null;try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}scanMsg(`✓ ${SC.picks[i].bin} ×${SC.picks[i].items.reduce((x,y)=>x+y.q,0)} prélevé`,true);advance()}
   else if(a==='ecart'){const i=SC.confirm,cur=SC.picks[i];if(i==null)return;const exp=cur.items.reduce((x,y)=>x+y.q,0);
     const pris=prompt(`Combien en as-tu pris réellement ? (demandé : ${exp})`,String(exp));if(pris===null)return;const reste=prompt('Combien en reste-t-il maintenant dans le bac ?','0');if(reste===null)return;
@@ -1306,7 +1312,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-sc]');if(!
 },true);
 /* Douchette (lecteur USB / Bluetooth) : elle « tape » le code puis Entrée */
 document.addEventListener('keydown',e=>{if(!SC.on||SC.phase!=='pick')return;if(e.target&&e.target.closest&&e.target.closest('#scManual'))return;const now=Date.now();
-  if(e.key==='Enter'){if(SC.buf.length>=1&&now-SC.bufT<300){e.preventDefault();onScan(SC.buf)}SC.buf='';return}
+  if(e.key==='Enter'){if(SC.buf.length>=1&&now-SC.bufT<300){e.preventDefault();if(!SC.gun&&SC.buf.length>=4){SC.gun=true;LS.set('cs_scanmode','gun');camStop();$('#scCamW').innerHTML='';scanDraw();toast('Douchette détectée : caméra coupée')}onScan(SC.buf)}SC.buf='';return}
   if(e.key.length===1){if(now-SC.bufT>300)SC.buf='';SC.buf+=e.key;SC.bufT=now;e.preventDefault()}
   if(e.key==='Escape'){e.preventDefault()}},true);
 
