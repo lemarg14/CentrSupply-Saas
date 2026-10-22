@@ -15,7 +15,7 @@
 const SCHEMA = {
   clients:    ['id','nom','type','contact','telephone','email','prix_prep','prix_upsell','prix_retour','emballage','consignes','portail','notes','actif','created','updated'],
   produits:   ['id','client_id','sku','nom','emplacement','prix','cout','seuil','delai','couverture','fefo','actif','created','updated'],
-  commandes:  ['id','numero','date','client_id','destinataire','lignes','ups','statut','date_exp','transporteur','suivi','montant','paiement','montant_paye','date_paiement','notes','created','updated'],
+  commandes:  ['id','numero','date','client_id','destinataire','lignes','ups','statut','date_exp','transporteur','suivi','montant','paiement','montant_paye','date_paiement','photos','notes','created','updated'],
   retours:    ['id','dossier','date','client_id','commande_id','produit_id','qte','motif','etat','decision','notes','created','updated'],
   mouvements: ['id','date','produit_id','type','qte','lot','dlc','note','created','updated'],
   frais:      ['id','date','client_id','libelle','qte','pu','montant','paiement','montant_paye','date_paiement','auto','notes','created','updated'],
@@ -52,6 +52,7 @@ function setup() {
     token = Utilities.getUuid().replace(/-/g, '');
     props.setProperty('TOKEN', token);
   }
+  DriveApp.getRootFolder(); // autorise l'accès à Google Drive (photos des colis)
   Logger.log('✅ Onglets prêts. CLÉ D\'ACCÈS à coller dans l\'app : ' + token);
 }
 
@@ -83,11 +84,29 @@ function doPost(e) {
       case 'ping': return out({ ok: true });
       case 'all':  return out({ ok: true, data: readAll() });
       case 'bulk': return out({ ok: true, n: bulk(body.ops || []) });
+      case 'photo': return out({ ok: true, data: savePhoto(body) });
       default:     return out({ ok: false, error: 'Action inconnue' });
     }
   } catch (err) {
     return out({ ok: false, error: String(err && err.message || err) });
   }
+}
+
+/** Photo d'un colis -> Google Drive : Centr Supply — Photos colis / <client> / <AAAA-MM> / <n°>_<date>.jpg */
+function savePhoto(b) {
+  if (!b.data) throw new Error('Photo vide');
+  const props = PropertiesService.getScriptProperties();
+  let root = null;
+  const rid = props.getProperty('PHOTO_DIR');
+  if (rid) { try { root = DriveApp.getFolderById(rid); if (root.isTrashed()) root = null; } catch (e) { root = null; } }
+  if (!root) { root = DriveApp.createFolder('Centr Supply — Photos colis'); props.setProperty('PHOTO_DIR', root.getId()); }
+  const sub = function (parent, name) { const it = parent.getFoldersByName(name); return it.hasNext() ? it.next() : parent.createFolder(name); };
+  const t = String(b.t || new Date().toISOString());
+  const folder = sub(sub(root, String(b.client || 'Sans client').slice(0, 80)), t.slice(0, 7));
+  const name = String(b.numero || 'commande').replace(/[\\/:*?"<>|#]/g, '') + '_' + t.slice(0, 16).replace(/[:T]/g, '-') + '_' + String(b.k || '').slice(-5) + '.jpg';
+  const f = folder.createFile(Utilities.newBlob(Utilities.base64Decode(b.data), 'image/jpeg', name));
+  f.setDescription('Commande ' + b.numero + ' · ' + b.client + ' · ' + t + (b.u ? ' · ' + b.u : ''));
+  return { id: f.getId(), url: f.getUrl() };
 }
 
 function out(o) {
