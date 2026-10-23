@@ -318,7 +318,18 @@ body.role-prep .search,body.role-prep [data-act="newOrder"]{display:none!importa
 /* ===== Mode scan ===== */
 #scanui{display:none;position:fixed;inset:0;z-index:80;background:var(--bg);color:var(--ink);flex-direction:column}
 #scanui.open{display:flex}
-#scTopW{flex:none}.sc-cam.ph{height:min(30vh,260px)}.sc-ph{border:2px dashed var(--line2);border-radius:14px;padding:12px}.ph-grid{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.ph-it{width:110px;position:relative}.ph-it img,.ph-ph{width:110px;height:82px;object-fit:cover;border-radius:8px;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line)}.ph-it small{display:block;font-size:10.5px;color:var(--muted);margin-top:2px}.ph-badge{position:absolute;top:4px;left:4px;font-size:9.5px;background:var(--warn);color:#000;padding:1px 5px;border-radius:5px;font-weight:700}.sc-gun{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}.sc-gun small{display:block;color:var(--muted)}.sc-gun .sc-read{background:var(--panel2);color:var(--ink)}#scanui.confirming .sc-cam{height:min(16vh,140px)}.sc-cam{transition:height .2s}.sc-top{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:calc(8px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--side);position:relative;z-index:7}
+#scTopW{flex:none}
+#phFull{display:none;position:fixed;inset:0;z-index:120;background:#000;color:#fff}#phFull.open{display:block}
+#phFull video,#phFull #phShot{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}#phFull video.mir{transform:scaleX(-1)}
+.ph-guide{position:absolute;left:50%;top:50%;width:min(86vw,calc(86vh*4/3));aspect-ratio:4/3;max-height:74vh;transform:translate(-50%,-50%);border:3px dashed rgba(185,242,62,.85);border-radius:16px;display:flex;align-items:flex-end;justify-content:center;pointer-events:auto}
+.ph-guide span{background:rgba(0,0,0,.55);padding:5px 10px;border-radius:8px;font-size:13px;margin-bottom:10px;text-align:center}
+.ph-top{position:absolute;z-index:2;top:0;left:0;right:0;display:flex;gap:8px;align-items:center;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;background:linear-gradient(rgba(0,0,0,.7),transparent)}.ph-top .sp{flex:1}
+.ph-b{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:10px 14px;font-size:16px;font-weight:700;cursor:pointer}.ph-b.on{background:var(--accent);color:#000}.ph-b.big{padding:16px 22px;font-size:18px}.ph-b.ok{background:var(--accent);color:#000;border-color:var(--accent)}
+.ph-bot{position:absolute;left:0;right:0;bottom:0;padding:12px 16px calc(18px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.75))}.ph-row{display:flex;align-items:center;justify-content:center;gap:22px}
+.ph-shut{width:84px;height:84px;border-radius:50%;background:#fff;border:6px solid rgba(255,255,255,.4);box-shadow:0 0 0 3px #fff inset;cursor:pointer;flex:none}.ph-shut:active{transform:scale(.94)}
+.ph-msg{font-size:12.5px;opacity:.8;min-width:90px}#phZoom{width:min(420px,80vw);display:block;margin:0 auto 12px;accent-color:#B9F23E}
+.ph-cd{position:absolute;inset:0;display:grid;place-items:center;font-size:160px;font-weight:900;text-shadow:0 6px 30px #000;pointer-events:none}.ph-cd[hidden],.ph-bot[hidden],#phFull [hidden]{display:none!important}#phFull.rev .ph-guide{display:none}
+@media (orientation:landscape) and (min-width:700px){.ph-bot{left:auto;top:0;width:150px;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(90deg,transparent,rgba(0,0,0,.7))}.ph-row{flex-direction:column}#phZoom{writing-mode:vertical-lr;direction:rtl;width:auto;height:180px;margin:0 auto 12px}}.sc-cam.ph{height:min(30vh,260px)}.sc-ph{border:2px dashed var(--line2);border-radius:14px;padding:12px}.ph-grid{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.ph-it{width:110px;position:relative}.ph-it img,.ph-ph{width:110px;height:82px;object-fit:cover;border-radius:8px;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--line)}.ph-it small{display:block;font-size:10.5px;color:var(--muted);margin-top:2px}.ph-badge{position:absolute;top:4px;left:4px;font-size:9.5px;background:var(--warn);color:#000;padding:1px 5px;border-radius:5px;font-weight:700}.sc-gun{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}.sc-gun small{display:block;color:var(--muted)}.sc-gun .sc-read{background:var(--panel2);color:var(--ink)}#scanui.confirming .sc-cam{height:min(16vh,140px)}.sc-cam{transition:height .2s}.sc-top{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:calc(8px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 8px calc(14px + env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--side);position:relative;z-index:7}
 .sc-top .btn{padding:10px 16px;font-size:15px}
 @media (max-width:560px){.sc-stats{order:3;flex-basis:100%;gap:12px}}
 .sc-rest{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--panel2);font-size:14px}.sc-rest b{font-size:18px;color:var(--ink)}
@@ -1227,11 +1238,11 @@ const PDB={p:null,open(){return this.p||(this.p=new Promise((res,rej)=>{const r=
 function photoThumbs(o){const ps=(o&&o.photos)||[];if(!ps.length)return `<p class="muted small" style="margin:4px 0 0">Aucune photo.</p>`;
   return `<div class="ph-grid">${ps.map(p=>`<div class="ph-it">${p.id?`<a href="${h(p.url||('https://drive.google.com/file/d/'+p.id+'/view'))}" target="_blank" rel="noopener"><img loading="lazy" src="https://drive.google.com/thumbnail?id=${encodeURIComponent(p.id)}&sz=w400" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ph-ph',textContent:'📷 Ouvrir'}))"></a>`:`<img data-pk="${h(p.k)}" alt=""><span class="ph-badge">à envoyer</span>`}<small>${fd(String(p.t).slice(0,10))} ${new Date(p.t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}${p.u?' · '+h(p.u):''}</small></div>`).join('')}</div>`}
 async function fillLocalThumbs(root){let els=[];try{els=$$('img[data-pk]',root||document)}catch(e){return}for(const el of els){if(el.getAttribute('src'))continue;try{const v=await PDB.get(el.dataset.pk);if(v)el.src=v.data}catch(e){}}}
-function stampPhoto(src,o){const sw=src.videoWidth||src.naturalWidth||src.width,sh=src.videoHeight||src.naturalHeight||src.height;const sc=Math.min(1,1280/Math.max(sw,sh)),w=Math.round(sw*sc),hh=Math.round(sh*sc);
-  const cv=document.createElement('canvas');cv.width=w;cv.height=hh;const x=cv.getContext('2d');x.drawImage(src,0,0,w,hh);
+function stampPhoto(src,o,mirror){const sw=src.videoWidth||src.naturalWidth||src.width,sh=src.videoHeight||src.naturalHeight||src.height;const sc=Math.min(1,1600/Math.max(sw,sh)),w=Math.round(sw*sc),hh=Math.round(sh*sc);
+  const cv=document.createElement('canvas');cv.width=w;cv.height=hh;const x=cv.getContext('2d');if(mirror){x.save();x.translate(w,0);x.scale(-1,1)}x.drawImage(src,0,0,w,hh);if(mirror)x.restore();
   const d=new Date(),txt=`${o.numero} · ${cname(o.client_id)} · ${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}${LS.get('cs_user','')?' · '+LS.get('cs_user',''):''} · Centr Supply`;
   const fs=Math.max(14,Math.round(w/42));x.fillStyle='rgba(0,0,0,.62)';x.fillRect(0,hh-fs*1.9,w,fs*1.9);x.fillStyle='#fff';x.font=`700 ${fs}px Arial, sans-serif`;x.textBaseline='middle';x.fillText(txt,fs*.6,hh-fs*.95,w-fs*1.2);
-  return cv.toDataURL('image/jpeg',.72)}
+  return cv.toDataURL('image/jpeg',.8)}
 async function photoSave(o,data){const k=uid('ph'),t=new Date().toISOString(),u=LS.get('cs_user','');
   try{await PDB.put({k,oid:o.id,numero:o.numero,client:cname(o.client_id),t,u,data})}catch(e){toast('Stockage photo impossible sur cet appareil');return null}
   const cur=findO(o.id)||o;save('commandes',{...cur,photos:[...(cur.photos||[]),{k,t,u}]});photoSync();return k}
@@ -1250,15 +1261,46 @@ function photoPick(o){const inp=document.createElement('input');inp.type='file';
     await photoSave(o,stampPhoto(img,o));URL.revokeObjectURL(img.src);const l=$('#phList_'+o.id);if(l){l.innerHTML=photoThumbs(findO(o.id));fillLocalThumbs(l)}toast('Photo ajoutée ✓')};inp.click()}
 function litigeText(o){const c=client(o.client_id),js=DB.journal.filter(e=>e.ref===o.id).sort((a,b)=>a.date.localeCompare(b.date));
   return `DOSSIER COMMANDE ${o.numero} — ${c?c.nom:''}\nDestinataire : ${o.destinataire||'—'}\nCommande du ${fdl(o.date)}${o.date_exp?` · expédiée le ${fdl(o.date_exp)}`:''}\nContenu : ${o.lignes.map(l=>`${pname(l.p)} ×${l.q}`).join(', ')}${o.ups?` (+ ${o.ups} upsell)`:''}\nTransporteur : ${o.transporteur||'—'}${o.suivi?` · suivi ${o.suivi}`:''}\n${(o.photos||[]).length?`Photos du colis (horodatées) :\n${o.photos.map(p=>`• ${new Date(p.t).toLocaleString('fr-FR')}${p.u?' par '+p.u:''} : ${p.url||(p.id?'https://drive.google.com/file/d/'+p.id+'/view':'en attente d’envoi')}`).join('\n')}`:'Photos : aucune'}${js.length?`\nHistorique :\n${js.map(e=>`• ${new Date(e.date).toLocaleString('fr-FR')} ${e.user||''} — ${e.action}`).join('\n')}`:''}`}
-/* caméra photo pendant l'emballage */
-async function phCamStart(){if(SC.phStream||SC.phStarting||!navigator.mediaDevices?.getUserMedia)return;const v=$('#phVideo');if(!v)return;SC.phStarting=true;
-  try{SC.phStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}},audio:false});const vv=$('#phVideo');if(!vv||!SC.on){phCamStop();return}vv.srcObject=SC.phStream;await vv.play();const off=$('#phOff');if(off)off.style.display='none'}
-  catch(e){const off=$('#phOff');if(off)off.innerHTML='Caméra indisponible : utilise 🖼 pour choisir une photo'}finally{SC.phStarting=false}}
-function phCamStop(){if(SC.phStream){SC.phStream.getTracks().forEach(t=>t.stop());SC.phStream=null}}
-async function phShoot(oid){const o=findO(oid),v=$('#phVideo');if(!o)return;
-  if(!SC.phStream||!v||!v.videoWidth){photoPick(o);return}
-  const data=stampPhoto(v,o);try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}const fl=$('#scFlash');if(fl){fl.textContent='📸';fl.className='sc-flash ok';setTimeout(()=>fl.className='sc-flash',300)}
-  await photoSave(o,data);scanDraw()}
+/* ===== Prise de photo plein écran (cadrage simple, téléphone et iPad) ===== */
+const PH={o:null,stream:null,starting:false,facing:null,timer:false,zoom:1,torch:false,shot:null};
+async function phCamStart(){if(PH.stream||PH.starting||!navigator.mediaDevices?.getUserMedia)return;PH.starting=true;PH.facing=PH.facing||LS.get('cs_phcam','environment');
+  try{PH.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:PH.facing,width:{ideal:2560},height:{ideal:1920}},audio:false});
+    const v=$('#phV');if(v){v.srcObject=PH.stream;v.classList.toggle('mir',PH.facing==='user');await v.play().catch(()=>{})}phCaps()}
+  catch(e){const m=$('#phMsg');if(m)m.textContent='Caméra indisponible : utilise « Choisir une photo »'}finally{PH.starting=false}}
+function phCamStop(){if(PH.stream){PH.stream.getTracks().forEach(t=>t.stop());PH.stream=null}}
+function phTrack(){return PH.stream&&PH.stream.getVideoTracks()[0]}
+function phCaps(){const t=phTrack(),c=t&&t.getCapabilities?t.getCapabilities():{},z=$('#phZoom'),tb=$('[data-ph="torch"]');
+  if(z){if(c.zoom&&c.zoom.max>c.zoom.min){z.hidden=false;z.min=c.zoom.min;z.max=Math.min(c.zoom.max,5);z.step=c.zoom.step||0.1;z.value=PH.zoom=Math.max(c.zoom.min,Math.min(PH.zoom,z.max))}else z.hidden=true}
+  if(tb)tb.hidden=!c.torch}
+function phOpen(oid){const o=findO(oid);if(!o)return;PH.o=o;PH.shot=null;
+  let el=$('#phFull');if(!el){el=document.createElement('div');el.id='phFull';document.body.appendChild(el)}
+  el.innerHTML=`<video id="phV" playsinline muted autoplay></video><img id="phShot" alt="" hidden>
+   <div class="ph-guide"><span>Colis ouvert · tous les articles · n° de commande visible</span></div><div class="ph-cd" id="phCd"></div>
+   <div class="ph-top"><b>${h(o.numero)} · ${h(cname(o.client_id))}</b><span class="sp"></span>
+     <button class="ph-b" data-ph="torch" hidden title="Lampe">🔦</button><button class="ph-b ${PH.timer?'on':''}" data-ph="timer" title="Retardateur 3 s (iPad posé)">⏱ 3 s</button><button class="ph-b" data-ph="flip" title="Changer de caméra">🔄</button><button class="ph-b" data-ph="close" title="Fermer">✕</button></div>
+   <div class="ph-bot" id="phBot"><input type="range" id="phZoom" hidden aria-label="Zoom"><div class="ph-row"><button class="ph-b" data-ph="pick">🖼 Choisir</button><button class="ph-shut" data-ph="shoot" aria-label="Prendre la photo"></button><span class="ph-msg" id="phMsg">Touche l’écran ou le bouton</span></div></div>
+   <div class="ph-bot" id="phRev" hidden><div class="ph-row"><button class="ph-b big" data-ph="retake">↺ Reprendre</button><button class="ph-b big ok" data-ph="keep">✓ Garder <span id="phKeepT"></span></button></div></div>`;
+  el.classList.add('open');if(PH.stream){const v=$('#phV');v.srcObject=PH.stream;v.classList.toggle('mir',PH.facing==='user');v.play().catch(()=>{});phCaps()}else phCamStart()}
+function phClose(){const el=$('#phFull');if(el){el.classList.remove('open','rev');el.innerHTML=''}clearTimeout(PH.keepT);clearInterval(PH.cdT);PH.shot=null;if(!SC.on||SC.phase!=='pack')phCamStop()}
+function phCapture(){const v=$('#phV');if(!v||!v.videoWidth){photoPick(PH.o);phClose();return}
+  const data=stampPhoto(v,PH.o,PH.facing==='user');PH.shot=data;try{navigator.vibrate&&navigator.vibrate(30)}catch(e){}
+  try{const A=window.AudioContext||window.webkitAudioContext;const ac=SC.ac||(SC.ac=new A());const n=ac.createBufferSource(),b=ac.createBuffer(1,ac.sampleRate*0.06,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length)*.5;n.buffer=b;n.connect(ac.destination);n.start()}catch(e){}
+  const im=$('#phShot');im.src=data;im.hidden=false;$('#phFull').classList.add('rev');$('#phBot').hidden=true;$('#phRev').hidden=false;
+  let s=3;const kt=$('#phKeepT');kt.textContent=`(${s})`;clearInterval(PH.keepT);PH.keepT=setInterval(()=>{s--;if(s<=0){clearInterval(PH.keepT);phKeep()}else kt.textContent=`(${s})`},1000)}
+function phShootNow(){if(PH.shot||PH.cdT)return;if(!PH.timer){phCapture();return}let s=3;const cd=$('#phCd');cd.textContent=s;cd.hidden=false;
+  PH.cdT=setInterval(()=>{s--;if(s<=0){clearInterval(PH.cdT);PH.cdT=null;cd.hidden=true;phCapture()}else cd.textContent=s},1000)}
+async function phKeep(){clearInterval(PH.keepT);if(!PH.shot)return;const o=PH.o,d=PH.shot;PH.shot=null;phClose();await photoSave(o,d);if(SC.on)scanDraw();else{const l=$('#phList_'+o.id);if(l){l.innerHTML=photoThumbs(findO(o.id));fillLocalThumbs(l)}}toast('Photo enregistrée ✓')}
+document.addEventListener('click',e=>{const fl=$('#phFull');if(!fl||!fl.classList.contains('open')||!fl.contains(e.target))return;const b=e.target.closest('[data-ph]');
+  if(!b){if(e.target.id==='phV'||e.target.closest('.ph-guide'))phShootNow();return}e.preventDefault();e.stopPropagation();const a=b.dataset.ph;
+  if(a==='shoot')phShootNow();else if(a==='close')phClose();else if(a==='keep')phKeep();
+  else if(a==='retake'){clearInterval(PH.keepT);PH.shot=null;$('#phShot').hidden=true;$('#phRev').hidden=true;$('#phBot').hidden=false;$('#phFull').classList.remove('rev')}
+  else if(a==='pick'){const o=PH.o;phClose();photoPick(o)}
+  else if(a==='timer'){PH.timer=!PH.timer;b.classList.toggle('on',PH.timer)}
+  else if(a==='flip'){PH.facing=PH.facing==='user'?'environment':'user';LS.set('cs_phcam',PH.facing);phCamStop();phCamStart()}
+  else if(a==='torch'){const t=phTrack();PH.torch=!PH.torch;b.classList.toggle('on',PH.torch);t&&t.applyConstraints({advanced:[{torch:PH.torch}]}).catch(()=>{})}},true);
+document.addEventListener('input',e=>{if(e.target.id!=='phZoom')return;PH.zoom=+e.target.value;const t=phTrack();t&&t.applyConstraints({advanced:[{zoom:PH.zoom}]}).catch(()=>{})});
+document.addEventListener('keydown',e=>{const fl=$('#phFull');if(!fl||!fl.classList.contains('open'))return;if(e.key==='Escape')phClose();else if(e.key===' '||e.key==='Enter'){e.preventDefault();e.stopPropagation();PH.shot?phKeep():phShootNow()}},true);
+function phShoot(oid){phOpen(oid)}
 
 /* ============ Mode scan (préparation) ============ */
 const SC={on:false};
@@ -1274,7 +1316,7 @@ function scanStart(){
   $('#scanui').classList.add('open');document.body.style.overflow='hidden';scanDraw();if(!SC.gun)camStart();
 }
 function scanStop(silent){
-  if(!SC.on)return;camStop();phCamStop();try{SC.wake&&SC.wake.release();SC.wake=null}catch(e){}SC.on=false;$('#scanui').classList.remove('open');$('#scanui').innerHTML='';document.body.style.overflow='';
+  if(!SC.on)return;camStop();phClose();phCamStop();try{SC.wake&&SC.wake.release();SC.wake=null}catch(e){}SC.on=false;$('#scanui').classList.remove('open');$('#scanui').innerHTML='';document.body.style.overflow='';
   const n=SC.packed.size,min=(Date.now()-SC.t0)/60000;
   if(n){const art=SC.orders.filter(id=>SC.packed.has(id)).map(findO).filter(Boolean).reduce((a,o)=>a+qtyOf(o),0);
     const packed=SC.orders.filter(id=>SC.packed.has(id)).map(findO).filter(Boolean),rev=round2(packed.reduce((a,o)=>a+(Number(o.montant)||0),0)),revL=round2(packed.filter(o=>isLogi(client(o.client_id))).reduce((a,o)=>a+(Number(o.montant)||0),0)),byc={};packed.forEach(o=>byc[o.client_id]=(byc[o.client_id]||0)+1);
@@ -1356,8 +1398,7 @@ function scanDraw(){
   $('#scTopW').innerHTML=top;const cw=$('#scCamW');
   if(SC.phase==='pick'&&SC.gun){if(!$('#scGun'))cw.innerHTML='<div class="sc-gun" id="scGun"><span style="font-size:26px">🔫</span><span><b>Mode douchette</b><small>Scanne l’étiquette du bac avec le lecteur</small></span><span class="sc-read" id="scRead" style="position:static;margin-left:auto"></span></div>'}
   else if(SC.phase==='pick'){if($('#scGun'))cw.innerHTML='';if(!$('#scVideo'))cw.innerHTML='<div class="sc-cam"><video id="scVideo" playsinline muted autoplay></video><div class="reticle"></div><div class="camoff" id="scOff">Ouverture de la caméra…</div><div class="sc-read" id="scRead"></div></div>'}
-  else if(SC.phase==='pack'&&photoCfg().mode!=='off'&&SC.orders.some(id=>!SC.packed.has(id)&&!SC.skipped.has(id))){if(!$('#phVideo'))cw.innerHTML='<div class="sc-cam ph"><video id="phVideo" playsinline muted autoplay></video><div class="camoff" id="phOff">Ouverture de la caméra photo…</div></div>';phCamStart()}
-  else{if(cw.firstChild)cw.innerHTML='';phCamStop()}
+  else{if(cw.firstChild)cw.innerHTML='';if(SC.phase==='pack'&&photoCfg().mode!=='off'&&SC.orders.some(id=>!SC.packed.has(id)&&!SC.skipped.has(id)))phCamStart();else phCamStop()}
   $('#scPane').innerHTML=body;fillLocalThumbs($('#scPane'));
   ui.classList.toggle('confirming',SC.phase==='pick'&&SC.confirm!=null&&SC.confirm===SC.i);if(ui.classList.contains('confirming'))setTimeout(()=>$('[data-sc=qok]')?.scrollIntoView({block:'end',behavior:'smooth'}),30);
   if(SC.phase==='pick'){const v=$('#scVideo');if(SC.stream&&v&&v.srcObject!==SC.stream){v.srcObject=SC.stream;v.play().catch(()=>{});$('#scOff').style.display='none'}
@@ -1884,7 +1925,7 @@ const ACT={
   go:d=>go(d.r),close:()=>closeModal(),
   newOrder:()=>orderForm(),newOrderFor:d=>orderForm(null,d.id),editOrder:d=>{closeModal();orderForm(findO(d.id))},
   newReturn:()=>{closeModal();returnNewForm()},newReturnFor:d=>{closeModal();returnNewForm(d.id)},editReturn:d=>{closeModal();returnForm(DB.retours.find(r=>r.id===d.id))},
-  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},photoAdd:d=>photoPick(findO(d.id)),litige:d=>copy(litigeText(findO(d.id))),checkData:()=>checkForm(),recalcGo:d=>{const D=dataCheck();closeModal();applyRecalc(d.w==='paid'?D.paid:D.unpaid);setTimeout(checkForm,150)},recalcIgnore:()=>{const ign=LS.get('cs_recalcIgnore',{});dataCheck().unpaid.forEach(x=>ign[x.o.id]=x.o.montant);LS.set('cs_recalcIgnore',ign);closeModal();render();toast('Écarts ignorés')},fixExp:()=>{const a=dataCheck().noExp;closeModal();saveMany(a.map(o=>['commandes',{...o,date_exp:o.date}]),`Dates d’expédition complétées (${a.length})`);toast(`${a.length} date(s) complétée(s)`);setTimeout(checkForm,150)},repCopy:()=>copy(repText()),sessAdd:()=>sessForm(),sessDel:d=>{if(confirm('Supprimer cette session ?')){saveParam('sessions',JSON.stringify(sessions().filter(x=>x.id!==d.id)));render()}},
+  newReception:()=>{closeModal();receptionForm()},adjust:d=>{closeModal();adjustForm(d.id)},photoAdd:d=>phOpen(d.id),litige:d=>copy(litigeText(findO(d.id))),checkData:()=>checkForm(),recalcGo:d=>{const D=dataCheck();closeModal();applyRecalc(d.w==='paid'?D.paid:D.unpaid);setTimeout(checkForm,150)},recalcIgnore:()=>{const ign=LS.get('cs_recalcIgnore',{});dataCheck().unpaid.forEach(x=>ign[x.o.id]=x.o.montant);LS.set('cs_recalcIgnore',ign);closeModal();render();toast('Écarts ignorés')},fixExp:()=>{const a=dataCheck().noExp;closeModal();saveMany(a.map(o=>['commandes',{...o,date_exp:o.date}]),`Dates d’expédition complétées (${a.length})`);toast(`${a.length} date(s) complétée(s)`);setTimeout(checkForm,150)},repCopy:()=>copy(repText()),sessAdd:()=>sessForm(),sessDel:d=>{if(confirm('Supprimer cette session ?')){saveParam('sessions',JSON.stringify(sessions().filter(x=>x.id!==d.id)));render()}},
   repCsv:()=>{const R=repData(F.rep.per,F.rep.u);download(`rapport-preparation-${R.a}_${R.b}.csv`,csv([['Date','Heure','Préparateur','Durée (min)','Cueillette (min)','Commandes','Articles','Revenus','Cdes/h','€/h','Écarts','Codes tapés','Saisie']].concat(R.ss.map(x=>[x.d,x.h||'',x.u||'',x.min,x.pick??'',x.cmd,x.art||'',x.rev??'',Math.round(x.cmd/(x.min/60)),x.rev!=null?round2(x.rev/(x.min/60)):'',x.ecart||0,x.tape||0,x.manuel?'manuelle':'scan']))))},provAdd:d=>provForm(d.id,'add'),provUse:d=>provForm(d.id,'use'),provPay:d=>provPay(d.id),provDel:d=>{const x=DB.provisions.find(y=>y.id===d.id);if(x&&confirm(`Supprimer cette ligne (${x.sens==='versement'?'+':'−'}${eur(x.montant)}) ?`)){removeRow('provisions',d.id)}},ecartDel:d=>{saveParam('ecarts',JSON.stringify(ecarts().filter(e=>e.id!==d.id)));render()},ecartsClear:()=>{if(confirm('Effacer tous les écarts ?')){saveParam('ecarts','[]');render()}},
   newProduct:()=>productForm(),newProductFor:d=>{closeModal();productForm(null,d.id)},editProduct:d=>{closeModal();productForm(prod(d.id))},prodHist:d=>prodHistory(d.id),
   importOrders:d=>{closeModal();importForm(d.id)},newClient:()=>clientForm(),editClient:d=>clientForm(client(d.id)),openClient:d=>go('client',d.id),
